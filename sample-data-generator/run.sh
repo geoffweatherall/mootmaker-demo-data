@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Resets the given room-booking-api environment and populates it with sample data (10 people,
-# 10 rooms, 30 bookings over the next 3 days). Talks to the room-booking-api deployment of the
-# given environment name in the sibling checkout (see the room-booking project README for the
-# multi-environment how-to).
+# Resets the given room-booking-api environment and populates it with sample data (40 people,
+# 10 rooms, bookings across every business day from a week ago to seven weeks ahead). Talks to the
+# room-booking-api deployment of the given environment name in the sibling checkout (see the
+# room-booking project README for the multi-environment how-to).
 # NOTE: this calls the `reset` mutation, which deletes all rooms and bookings (and any person not
 # linked to a Cognito account) in the target environment. Never point this at production.
 set -euo pipefail

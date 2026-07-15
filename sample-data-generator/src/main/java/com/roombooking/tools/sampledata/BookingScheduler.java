@@ -4,11 +4,17 @@ import module java.base;
 
 /**
  * Pure scheduling logic (no network calls) for generating a realistic-looking set of bookings
- * across a set of rooms over the next few days, within business hours. Meetings are scheduled
- * sequentially within each room (so a room is never double-booked), but different rooms are
- * scheduled independently, so meetings in different rooms may legitimately overlap in time -
- * except that no person (organiser or attendee) is ever placed into two overlapping meetings,
- * tracked via a shared busy-interval map across every room and day.
+ * across a set of rooms over a range of business days (which may include days in the past), within
+ * business hours. Meetings are scheduled sequentially within each room (so a room is never
+ * double-booked), but different rooms are scheduled independently, so meetings in different rooms
+ * may legitimately overlap in time - except that no person (organiser or attendee) is ever placed
+ * into two overlapping meetings, tracked via a shared busy-interval map across every room and day.
+ *
+ * A few extra touches keep the generated data looking like a real calendar rather than a packed
+ * schedule: each room's first meeting of the day starts at a random point in the day (not always
+ * 08:00), a person is, more often than not, given a real gap before their next meeting rather than
+ * being booked back-to-back, and meetings vary between small catch-ups and room-filling sessions
+ * that use at least half the room's capacity.
  */
 final class BookingScheduler {
 
@@ -17,6 +23,7 @@ final class BookingScheduler {
 
     private static final int BUSINESS_DAY_START_HOUR = 8;
     private static final int BUSINESS_DAY_END_HOUR = 17;
+    private static final int BUSINESS_DAY_MINUTES = (BUSINESS_DAY_END_HOUR - BUSINESS_DAY_START_HOUR) * 60;
 
     /** Cap on how many sequential meetings a single room can get in one day. */
     private static final int MAX_MEETINGS_PER_ROOM_PER_DAY = 2;
@@ -25,12 +32,42 @@ final class BookingScheduler {
     private static final double CHANCE_TO_STOP_AFTER_FIRST_MEETING = 0.5;
 
     /**
-     * Step used to search for a later start time when the pool of 10 people is fully booked at
-     * the current candidate time (e.g. every room's first meeting otherwise starts at 08:00,
-     * which only the first ~5 rooms could staff with 2 people each). A multiple of 5 keeps every
-     * candidate start on the API's required 5-minute boundary.
+     * Step used both to search for a later start time when people are contended, and to pick a
+     * room-day's random starting point. A multiple of 5 keeps every candidate start on the API's
+     * required 5-minute boundary.
      */
     private static final int RETRY_STEP_MINUTES = 15;
+
+    /**
+     * Chance that a participant is given a real gap before they can be booked into another
+     * meeting, rather than being immediately available the instant this meeting ends. Comfortably
+     * above the "at least half" target since some participants who don't get an artificial gap
+     * still end up with one anyway (the next room to look for them may not do so immediately).
+     */
+    private static final double GAP_AFTER_MEETING_PROBABILITY = 0.65;
+
+    /** How long that post-meeting gap lasts, when one is applied. */
+    private static final List<Integer> GAP_MINUTES_OPTIONS = List.of(15, 30, 45, 60);
+
+    /** Every meeting needs an organiser plus at least one attendee. */
+    private static final int MIN_PARTICIPANTS = 2;
+
+    /**
+     * Chance that a meeting is deliberately sized to use at least half the room's capacity, rather
+     * than being a small catch-up. Comfortably above the "at least half of all meetings" target
+     * since a meeting occasionally can't reach that size if too few people are free right now (it's
+     * simply capped to however many are available, rather than dropped or delayed).
+     */
+    private static final double LARGE_MEETING_PROBABILITY = 0.65;
+
+    /**
+     * Weighted attendee-count outcomes for a small (non room-filling) meeting, before capping to
+     * what the free-people pool allows: one attendee besides the organiser is the most common case,
+     * tapering off from there. Keeping most small meetings this size leaves more people free at any
+     * given moment, which is what makes it possible to also give most people real gaps between
+     * meetings and still staff the occasional large meeting.
+     */
+    private static final double[] SMALL_MEETING_ATTENDEE_COUNT_CUMULATIVE_WEIGHTS = {0.55, 0.85, 1.0};
 
     record RoomInfo(String id, int capacity) {
     }
@@ -50,21 +87,27 @@ final class BookingScheduler {
     }
 
     /**
-     * Generates bookings for {@code daysAhead} business days starting tomorrow, for every room in
-     * {@code rooms}. Each room gets 1-2 sequential, non-overlapping meetings per day (skipped once
-     * a room/day runs out of business-hours time or of people free at that moment). Every meeting
-     * has at least one attendee in addition to its organiser, sized so the room's capacity is
-     * never exceeded, and every participant (organiser or attendee) is only ever in one meeting at
-     * a time across the whole generated schedule - regardless of room.
+     * Generates bookings for every business day (Monday-Friday) from {@code startDayOffset} to
+     * {@code endDayOffsetInclusive} days relative to today (negative for days in the past), for
+     * every room in {@code rooms}. Each room gets 0-2 sequential, non-overlapping meetings per day
+     * (fewer if the day's random starting point leaves little business-hours time, or people are
+     * scarce). Every meeting has an organiser plus at least one attendee, sized so the room's
+     * capacity is never exceeded; at least half of all meetings use at least half the room's
+     * capacity, the rest are small catch-ups. Every participant (organiser or attendee) is only
+     * ever in one meeting at a time across the whole generated schedule, regardless of room.
      */
     static List<GeneratedBooking> generate(final List<RoomInfo> rooms, final List<String> personIds,
-            final int daysAhead, final Random random) {
+            final int startDayOffset, final int endDayOffsetInclusive, final Random random) {
         final List<GeneratedBooking> bookings = new ArrayList<>();
         final Map<String, List<Interval>> busyByPerson = new HashMap<>();
         final LocalDate today = LocalDate.now();
 
-        for (int dayOffset = 1; dayOffset <= daysAhead; dayOffset++) {
+        for (int dayOffset = startDayOffset; dayOffset <= endDayOffsetInclusive; dayOffset++) {
             final LocalDate day = today.plusDays(dayOffset);
+            final DayOfWeek dayOfWeek = day.getDayOfWeek();
+            if (dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY) {
+                continue;
+            }
             for (final RoomInfo room : rooms) {
                 bookings.addAll(generateForRoomDay(room, day, personIds, busyByPerson, random));
             }
@@ -76,7 +119,7 @@ final class BookingScheduler {
             final List<String> personIds, final Map<String, List<Interval>> busyByPerson, final Random random) {
         final List<GeneratedBooking> roomDayBookings = new ArrayList<>();
         final LocalDateTime dayEnd = day.atTime(BUSINESS_DAY_END_HOUR, 0);
-        LocalDateTime searchFrom = day.atTime(BUSINESS_DAY_START_HOUR, 0);
+        LocalDateTime searchFrom = randomStartOfDay(day, random);
 
         for (int meetingIndex = 0; meetingIndex < MAX_MEETINGS_PER_ROOM_PER_DAY; meetingIndex++) {
             if (meetingIndex > 0 && random.nextDouble() < CHANCE_TO_STOP_AFTER_FIRST_MEETING) {
@@ -94,11 +137,19 @@ final class BookingScheduler {
     }
 
     /**
+     * Picks a random point within the business day to start looking for this room's first
+     * meeting, so rooms' meetings don't all cluster at 08:00 - some rooms will end up starting
+     * (and finishing) their day late, or not being used at all, which is realistic.
+     */
+    private static LocalDateTime randomStartOfDay(final LocalDate day, final Random random) {
+        final int offsetSteps = random.nextInt(BUSINESS_DAY_MINUTES / RETRY_STEP_MINUTES);
+        return day.atTime(BUSINESS_DAY_START_HOUR, 0).plusMinutes((long) offsetSteps * RETRY_STEP_MINUTES);
+    }
+
+    /**
      * Searches forward from {@code searchFrom}, in {@link #RETRY_STEP_MINUTES} steps, for the
      * first time at which both business-hours time remains for some meeting duration AND at least
-     * two people are free - since at 08:00 every room's first meeting starts at the same instant,
-     * only ~half the rooms can be staffed from a 10-person pool right away, so later rooms need to
-     * try later times as earlier, shorter meetings free their participants back up.
+     * {@link #MIN_PARTICIPANTS} people are free.
      */
     private static GeneratedBooking findAndPlaceMeeting(final RoomInfo room, final LocalDateTime dayEnd,
             final LocalDateTime searchFrom, final List<String> personIds, final Map<String, List<Interval>> busyByPerson,
@@ -121,18 +172,27 @@ final class BookingScheduler {
             freePeople.removeIf(personId -> isBusy(busyByPerson, personId, startTime, endTime));
 
             // Need at least an organiser plus one attendee; if too contended right now, try later.
-            if (freePeople.size() < 2) {
+            if (freePeople.size() < MIN_PARTICIPANTS) {
                 continue;
             }
 
+            final boolean scheduleAsLargeMeeting = random.nextDouble() < LARGE_MEETING_PROBABILITY;
+            // At least MIN_PARTICIPANTS even when "half capacity" rounds down below it (e.g. a
+            // capacity-2 room's half is 1, which alone wouldn't leave room for an attendee).
+            final int desiredParticipants = Math.max(MIN_PARTICIPANTS, scheduleAsLargeMeeting
+                    ? (int) Math.ceil(room.capacity() / 2.0)
+                    : 1 + pickSmallMeetingAttendeeCount(random));
+            // Capped to whatever the room and the free-people pool actually allow, but never below
+            // the organiser-plus-one-attendee floor already guaranteed by the check above.
+            final int totalParticipants = Math.min(desiredParticipants, Math.min(room.capacity(), freePeople.size()));
+            final int attendeeCount = totalParticipants - 1;
+
             final String organiserId = freePeople.getFirst();
-            final int maxAttendees = Math.min(room.capacity() - 1, freePeople.size() - 1);
-            final int attendeeCount = 1 + (maxAttendees > 1 ? random.nextInt(maxAttendees) : 0);
             final List<String> attendeeIds = List.copyOf(freePeople.subList(1, 1 + attendeeCount));
 
-            markBusy(busyByPerson, organiserId, startTime, endTime);
+            markBusyWithOptionalGap(busyByPerson, organiserId, startTime, endTime, random);
             for (final String attendeeId : attendeeIds) {
-                markBusy(busyByPerson, attendeeId, startTime, endTime);
+                markBusyWithOptionalGap(busyByPerson, attendeeId, startTime, endTime, random);
             }
 
             final String subject = SampleData.MEETING_SUBJECTS.get(random.nextInt(SampleData.MEETING_SUBJECTS.size()));
@@ -141,13 +201,38 @@ final class BookingScheduler {
         return null;
     }
 
+    /**
+     * Rolls a weighted attendee count for a small meeting (see
+     * {@link #SMALL_MEETING_ATTENDEE_COUNT_CUMULATIVE_WEIGHTS}); always at least 1.
+     */
+    private static int pickSmallMeetingAttendeeCount(final Random random) {
+        final double roll = random.nextDouble();
+        for (int i = 0; i < SMALL_MEETING_ATTENDEE_COUNT_CUMULATIVE_WEIGHTS.length; i++) {
+            if (roll < SMALL_MEETING_ATTENDEE_COUNT_CUMULATIVE_WEIGHTS[i]) {
+                return i + 1;
+            }
+        }
+        return SMALL_MEETING_ATTENDEE_COUNT_CUMULATIVE_WEIGHTS.length;
+    }
+
     private static boolean isBusy(final Map<String, List<Interval>> busyByPerson, final String personId,
             final LocalDateTime start, final LocalDateTime end) {
         return busyByPerson.getOrDefault(personId, List.of()).stream().anyMatch(interval -> interval.overlaps(start, end));
     }
 
-    private static void markBusy(final Map<String, List<Interval>> busyByPerson, final String personId,
-            final LocalDateTime start, final LocalDateTime end) {
-        busyByPerson.computeIfAbsent(personId, key -> new ArrayList<>()).add(new Interval(start, end));
+    /**
+     * Marks a participant busy for the meeting's real duration and, most of the time, for a
+     * further random gap afterwards - so they're not picked for another meeting the instant this
+     * one ends. The gap only affects when this person can next be scheduled; the meeting's actual
+     * start/end times are unaffected.
+     */
+    private static void markBusyWithOptionalGap(final Map<String, List<Interval>> busyByPerson, final String personId,
+            final LocalDateTime start, final LocalDateTime end, final Random random) {
+        LocalDateTime busyUntil = end;
+        if (random.nextDouble() < GAP_AFTER_MEETING_PROBABILITY) {
+            final int gapMinutes = GAP_MINUTES_OPTIONS.get(random.nextInt(GAP_MINUTES_OPTIONS.size()));
+            busyUntil = end.plusMinutes(gapMinutes);
+        }
+        busyByPerson.computeIfAbsent(personId, key -> new ArrayList<>()).add(new Interval(start, busyUntil));
     }
 }

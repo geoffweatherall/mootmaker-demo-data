@@ -13,7 +13,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class BookingSchedulerTest {
 
     private static final int ROOM_COUNT = 10;
-    private static final int DAYS_AHEAD = 3;
+    private static final int PERSON_COUNT = 40;
+
+    /** A handful of business days, forward-only - enough for the basic invariant tests below. */
+    private static final int SHORT_RANGE_END_DAY_OFFSET = 14;
+
+    /** The full range the real generator uses: a week in the past to seven weeks in the future. */
+    private static final int FULL_RANGE_START_DAY_OFFSET = -7;
+    private static final int FULL_RANGE_END_DAY_OFFSET = 49;
+
     private static final LocalTime BUSINESS_DAY_START = LocalTime.of(8, 0);
     private static final LocalTime BUSINESS_DAY_END = LocalTime.of(17, 0);
 
@@ -25,29 +33,51 @@ class BookingSchedulerTest {
         return rooms;
     }
 
-    private static List<String> tenPersonIds() {
+    private static List<String> personIds() {
         final List<String> ids = new ArrayList<>();
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < PERSON_COUNT; i++) {
             ids.add("person-" + i);
         }
         return ids;
+    }
+
+    private static Map<String, Integer> capacityByRoomId(final List<RoomInfo> rooms) {
+        final Map<String, Integer> capacityByRoomId = new HashMap<>();
+        for (final RoomInfo room : rooms) {
+            capacityByRoomId.put(room.id(), room.capacity());
+        }
+        return capacityByRoomId;
     }
 
     private static boolean overlaps(final GeneratedBooking a, final GeneratedBooking b) {
         return a.startTime().isBefore(b.endTime()) && b.startTime().isBefore(a.endTime());
     }
 
+    private static Map<String, List<GeneratedBooking>> groupByParticipant(final List<GeneratedBooking> bookings) {
+        final Map<String, List<GeneratedBooking>> byParticipant = new HashMap<>();
+        for (final GeneratedBooking booking : bookings) {
+            byParticipant.computeIfAbsent(booking.organiserId(), _ -> new ArrayList<>()).add(booking);
+            for (final String attendeeId : booking.attendeeIds()) {
+                byParticipant.computeIfAbsent(attendeeId, _ -> new ArrayList<>()).add(booking);
+            }
+        }
+        return byParticipant;
+    }
+
     @Test
-    void generatesAtLeastOneBookingPerRoomOnAverage() {
-        final List<GeneratedBooking> bookings = BookingScheduler.generate(tenRooms(), tenPersonIds(), DAYS_AHEAD, new Random(1));
+    void generatesAPlausibleNumberOfBookings() {
+        final List<GeneratedBooking> bookings = BookingScheduler.generate(tenRooms(), personIds(), 1,
+                SHORT_RANGE_END_DAY_OFFSET, new Random(1));
 
         assertTrue(bookings.size() >= ROOM_COUNT, "Expected at least one booking per room, got " + bookings.size());
-        assertTrue(bookings.size() <= ROOM_COUNT * DAYS_AHEAD * 2, "Got implausibly many bookings: " + bookings.size());
+        assertTrue(bookings.size() <= ROOM_COUNT * SHORT_RANGE_END_DAY_OFFSET * 2,
+                "Got implausibly many bookings: " + bookings.size());
     }
 
     @Test
     void neverOverlapsTwoBookingsInTheSameRoom() {
-        final List<GeneratedBooking> bookings = BookingScheduler.generate(tenRooms(), tenPersonIds(), DAYS_AHEAD, new Random(2));
+        final List<GeneratedBooking> bookings = BookingScheduler.generate(tenRooms(), personIds(), 1,
+                SHORT_RANGE_END_DAY_OFFSET, new Random(2));
 
         final Map<String, List<GeneratedBooking>> byRoom = new HashMap<>();
         for (final GeneratedBooking booking : bookings) {
@@ -67,23 +97,15 @@ class BookingSchedulerTest {
 
     @Test
     void neverDoubleBooksAPersonAcrossAnyRoom() {
-        final List<GeneratedBooking> bookings = BookingScheduler.generate(tenRooms(), tenPersonIds(), DAYS_AHEAD, new Random(7));
+        final List<GeneratedBooking> bookings = BookingScheduler.generate(tenRooms(), personIds(), 1,
+                SHORT_RANGE_END_DAY_OFFSET, new Random(7));
 
-        final Map<String, List<GeneratedBooking>> byParticipant = new HashMap<>();
-        for (final GeneratedBooking booking : bookings) {
-            byParticipant.computeIfAbsent(booking.organiserId(), _ -> new ArrayList<>()).add(booking);
-            for (final String attendeeId : booking.attendeeIds()) {
-                byParticipant.computeIfAbsent(attendeeId, _ -> new ArrayList<>()).add(booking);
-            }
-        }
-
-        for (final Map.Entry<String, List<GeneratedBooking>> entry : byParticipant.entrySet()) {
-            final List<GeneratedBooking> participantBookings = entry.getValue();
+        for (final List<GeneratedBooking> participantBookings : groupByParticipant(bookings).values()) {
             for (int i = 0; i < participantBookings.size(); i++) {
                 for (int j = i + 1; j < participantBookings.size(); j++) {
                     final GeneratedBooking a = participantBookings.get(i);
                     final GeneratedBooking b = participantBookings.get(j);
-                    assertFalse(overlaps(a, b), "Person " + entry.getKey() + " is double-booked in " + a + " and " + b);
+                    assertFalse(overlaps(a, b), "Participant is double-booked in " + a + " and " + b);
                 }
             }
         }
@@ -91,7 +113,8 @@ class BookingSchedulerTest {
 
     @Test
     void someMeetingsInDifferentRoomsOverlapInTime() {
-        final List<GeneratedBooking> bookings = BookingScheduler.generate(tenRooms(), tenPersonIds(), DAYS_AHEAD, new Random(2));
+        final List<GeneratedBooking> bookings = BookingScheduler.generate(tenRooms(), personIds(), 1,
+                SHORT_RANGE_END_DAY_OFFSET, new Random(2));
 
         boolean foundCrossRoomOverlap = false;
         for (int i = 0; i < bookings.size() && !foundCrossRoomOverlap; i++) {
@@ -109,7 +132,8 @@ class BookingSchedulerTest {
 
     @Test
     void everyBookingStartsAndEndsOnAFiveMinuteBoundary() {
-        final List<GeneratedBooking> bookings = BookingScheduler.generate(tenRooms(), tenPersonIds(), DAYS_AHEAD, new Random(3));
+        final List<GeneratedBooking> bookings = BookingScheduler.generate(tenRooms(), personIds(), 1,
+                SHORT_RANGE_END_DAY_OFFSET, new Random(3));
 
         for (final GeneratedBooking booking : bookings) {
             assertEquals(0, booking.startTime().getSecond());
@@ -123,7 +147,8 @@ class BookingSchedulerTest {
 
     @Test
     void everyBookingIsWithinBusinessHours() {
-        final List<GeneratedBooking> bookings = BookingScheduler.generate(tenRooms(), tenPersonIds(), DAYS_AHEAD, new Random(8));
+        final List<GeneratedBooking> bookings = BookingScheduler.generate(tenRooms(), personIds(), 1,
+                SHORT_RANGE_END_DAY_OFFSET, new Random(8));
 
         for (final GeneratedBooking booking : bookings) {
             assertFalse(booking.startTime().toLocalTime().isBefore(BUSINESS_DAY_START),
@@ -135,7 +160,8 @@ class BookingSchedulerTest {
 
     @Test
     void durationsVary() {
-        final List<GeneratedBooking> bookings = BookingScheduler.generate(tenRooms(), tenPersonIds(), DAYS_AHEAD, new Random(4));
+        final List<GeneratedBooking> bookings = BookingScheduler.generate(tenRooms(), personIds(), 1,
+                SHORT_RANGE_END_DAY_OFFSET, new Random(4));
 
         final Set<Long> distinctDurationsMinutes = bookings.stream()
                 .map(b -> Duration.between(b.startTime(), b.endTime()).toMinutes())
@@ -145,17 +171,14 @@ class BookingSchedulerTest {
     }
 
     @Test
-    void everyBookingHasAtLeastOneAttendeeAndRespectsItsRoomCapacity() {
+    void everyBookingRespectsItsRoomCapacity() {
         final List<RoomInfo> rooms = tenRooms();
-        final Map<String, Integer> capacityByRoomId = new HashMap<>();
-        for (final RoomInfo room : rooms) {
-            capacityByRoomId.put(room.id(), room.capacity());
-        }
+        final Map<String, Integer> capacityByRoomId = capacityByRoomId(rooms);
 
-        final List<GeneratedBooking> bookings = BookingScheduler.generate(rooms, tenPersonIds(), DAYS_AHEAD, new Random(5));
+        final List<GeneratedBooking> bookings = BookingScheduler.generate(rooms, personIds(), 1,
+                SHORT_RANGE_END_DAY_OFFSET, new Random(5));
 
         for (final GeneratedBooking booking : bookings) {
-            assertTrue(booking.attendeeIds().size() >= 1, "Booking " + booking + " has no attendees besides the organiser");
             final int totalPeople = 1 + booking.attendeeIds().size();
             assertTrue(totalPeople <= capacityByRoomId.get(booking.roomId()),
                     "Booking " + booking + " exceeds room capacity " + capacityByRoomId.get(booking.roomId()));
@@ -163,12 +186,105 @@ class BookingSchedulerTest {
     }
 
     @Test
-    void everyBookingIsInTheFuture() {
-        final List<GeneratedBooking> bookings = BookingScheduler.generate(tenRooms(), tenPersonIds(), DAYS_AHEAD, new Random(6));
+    void everyMeetingHasAtLeastOneAttendeeBesidesTheOrganiser() {
+        final List<GeneratedBooking> bookings = BookingScheduler.generate(tenRooms(), personIds(),
+                FULL_RANGE_START_DAY_OFFSET, FULL_RANGE_END_DAY_OFFSET, new Random(9));
 
-        final LocalDateTime now = LocalDateTime.now();
         for (final GeneratedBooking booking : bookings) {
-            assertTrue(booking.startTime().isAfter(now), "Booking " + booking + " is not in the future");
+            assertTrue(booking.attendeeIds().size() >= 1,
+                    "Booking " + booking + " has no attendees besides the organiser");
         }
+    }
+
+    @Test
+    void atLeastHalfOfMeetingsUseAtLeastHalfTheRoomCapacity() {
+        final List<RoomInfo> rooms = tenRooms();
+        final Map<String, Integer> capacityByRoomId = capacityByRoomId(rooms);
+
+        final List<GeneratedBooking> bookings = BookingScheduler.generate(rooms, personIds(),
+                FULL_RANGE_START_DAY_OFFSET, FULL_RANGE_END_DAY_OFFSET, new Random(21));
+
+        final long largeMeetings = bookings.stream()
+                .filter(b -> {
+                    final int totalPeople = 1 + b.attendeeIds().size();
+                    final int capacity = capacityByRoomId.get(b.roomId());
+                    return totalPeople >= Math.ceil(capacity / 2.0);
+                })
+                .count();
+        final double fraction = (double) largeMeetings / bookings.size();
+
+        assertTrue(fraction >= 0.5,
+                "Expected at least half of meetings to use at least half the room's capacity, got fraction " + fraction);
+    }
+
+    @Test
+    void atLeastHalfOfMeetingsForEachPersonAreFollowedByAGap() {
+        final List<GeneratedBooking> bookings = BookingScheduler.generate(tenRooms(), personIds(),
+                FULL_RANGE_START_DAY_OFFSET, FULL_RANGE_END_DAY_OFFSET, new Random(42));
+
+        int followedByGap = 0;
+        int totalWithNext = 0;
+        for (final List<GeneratedBooking> meetings : groupByParticipant(bookings).values()) {
+            final List<GeneratedBooking> sorted = meetings.stream()
+                    .sorted(Comparator.comparing(GeneratedBooking::startTime))
+                    .toList();
+            for (int i = 0; i < sorted.size() - 1; i++) {
+                totalWithNext++;
+                if (sorted.get(i).endTime().isBefore(sorted.get(i + 1).startTime())) {
+                    followedByGap++;
+                }
+            }
+        }
+
+        assertTrue(totalWithNext > 50, "Expected a meaningful sample of consecutive meetings, got " + totalWithNext);
+        final double gapRatio = (double) followedByGap / totalWithNext;
+        assertTrue(gapRatio >= 0.5, "Expected at least 50% of meetings to be followed by a gap, got " + gapRatio);
+    }
+
+    @Test
+    void meetingsAreSpreadAcrossTheDayNotBunchedAtTheStart() {
+        final List<GeneratedBooking> bookings = BookingScheduler.generate(tenRooms(), personIds(),
+                FULL_RANGE_START_DAY_OFFSET, FULL_RANGE_END_DAY_OFFSET, new Random(11));
+
+        final long startingInFirstTwoHours = bookings.stream()
+                .filter(b -> b.startTime().toLocalTime().isBefore(LocalTime.of(10, 0)))
+                .count();
+        final double fraction = (double) startingInFirstTwoHours / bookings.size();
+
+        assertTrue(fraction < 0.5,
+                "Expected fewer than half of meetings to start in the first two business hours, got " + fraction);
+    }
+
+    @Test
+    void neverSchedulesOnAWeekend() {
+        final List<GeneratedBooking> bookings = BookingScheduler.generate(tenRooms(), personIds(),
+                FULL_RANGE_START_DAY_OFFSET, FULL_RANGE_END_DAY_OFFSET, new Random(13));
+
+        for (final GeneratedBooking booking : bookings) {
+            final DayOfWeek dayOfWeek = booking.startTime().getDayOfWeek();
+            assertFalse(dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY,
+                    "Booking " + booking + " falls on a weekend");
+        }
+    }
+
+    @Test
+    void bookingsSpanFromAWeekAgoToSevenWeeksAhead() {
+        final List<GeneratedBooking> bookings = BookingScheduler.generate(tenRooms(), personIds(),
+                FULL_RANGE_START_DAY_OFFSET, FULL_RANGE_END_DAY_OFFSET, new Random(6));
+
+        final LocalDate today = LocalDate.now();
+        final LocalDate earliestAllowed = today.minusDays(7);
+        final LocalDate latestAllowed = today.plusDays(49);
+
+        for (final GeneratedBooking booking : bookings) {
+            final LocalDate day = booking.startTime().toLocalDate();
+            assertFalse(day.isBefore(earliestAllowed), "Booking " + booking + " is earlier than allowed");
+            assertFalse(day.isAfter(latestAllowed), "Booking " + booking + " is later than allowed");
+        }
+
+        assertTrue(bookings.stream().anyMatch(b -> b.startTime().toLocalDate().isBefore(today)),
+                "Expected at least one booking in the past");
+        assertTrue(bookings.stream().anyMatch(b -> b.startTime().toLocalDate().isAfter(today)),
+                "Expected at least one booking in the future");
     }
 }
