@@ -20,7 +20,7 @@ Running the tool, in order:
    - **At least half of a person's meetings are followed by a real gap** before their next one, rather than being back-to-back, so a person's calendar looks like a real one rather than a packed schedule.
    - **At least half of all meetings use at least half the room's capacity** (a mix of small catch-ups and larger, room-filling sessions), with every meeting still respecting the capacity limit.
 
-Creating people, rooms, and bookings each run up to **8 requests concurrently** rather than one at a time - the full schedule is worked out up front with no overlapping room or person times anywhere in it (see the scheduling rules above), so the order the ~600 `createBooking` calls actually reach the server in doesn't matter, and they don't need to wait on one another. 8 is a deliberately modest cap - enough to meaningfully cut down the several hundred network round trips this involves, without throwing a burst of concurrent traffic at what's usually a small demo deployment.
+Creating people, rooms, and bookings each run up to **8 requests concurrently** rather than one at a time - the full schedule is worked out up front with no overlapping room or person times anywhere in it (see the scheduling rules above), so the order in which the ~600 `createBooking` calls actually reach the server doesn't matter, and they don't need to wait on one another. 8 is a deliberately modest cap - enough to meaningfully cut down the several hundred network round trips this involves, without throwing a burst of concurrent traffic at what's usually a small demo deployment.
 
 Expect output like:
 
