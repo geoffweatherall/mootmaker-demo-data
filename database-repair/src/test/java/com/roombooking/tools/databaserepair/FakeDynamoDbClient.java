@@ -2,10 +2,14 @@ package com.roombooking.tools.databaserepair;
 
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.DeleteItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.PutItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
 import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
+import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
+import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
 
 import module java.base;
 
@@ -45,5 +49,22 @@ class FakeDynamoDbClient implements DynamoDbClient {
                 .filter(item -> attributeValue.equals(item.get(attributeName)))
                 .toList();
         return QueryResponse.builder().items(items).count(items.size()).build();
+    }
+
+    @Override
+    public ScanResponse scan(final ScanRequest request) {
+        final List<Map<String, AttributeValue>> items = tables.getOrDefault(request.tableName(), new ArrayList<>());
+        return ScanResponse.builder().items(items).count(items.size()).build();
+    }
+
+    /** Matches on every attribute in key, not just "id" - booking-participants is keyed by personId+sortKey. */
+    @Override
+    public DeleteItemResponse deleteItem(final DeleteItemRequest request) {
+        final List<Map<String, AttributeValue>> items = tables.get(request.tableName());
+        if (items != null) {
+            items.removeIf(item -> request.key().entrySet().stream()
+                    .allMatch(entry -> entry.getValue().equals(item.get(entry.getKey()))));
+        }
+        return DeleteItemResponse.builder().build();
     }
 }

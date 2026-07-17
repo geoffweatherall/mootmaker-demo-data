@@ -28,8 +28,8 @@ if [[ ! -f "${api_dir}/authenticate.sh" ]]; then
   exit 1
 fi
 
-# Populates COGNITO_USER_POOL_ID, AWS_REGION and PEOPLE_TABLE_NAME from the deployed API's
-# Terraform outputs for this environment.
+# Populates COGNITO_USER_POOL_ID, AWS_REGION, PEOPLE_TABLE_NAME, BOOKINGS_TABLE_NAME and
+# BOOKING_PARTICIPANTS_TABLE_NAME from the deployed API's Terraform outputs for this environment.
 source "${api_dir}/authenticate.sh" "${environment}"
 
 mvn -q exec:java -Dexec.args="${2:-}"

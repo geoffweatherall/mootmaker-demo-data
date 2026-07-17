@@ -10,9 +10,8 @@ import module java.base;
  * Runs maintenance repairs directly against a deployed room-booking-api environment's Cognito
  * user pool and DynamoDB tables. Unlike sample-data-generator, this bypasses the GraphQL API
  * entirely - what it needs to read and fix (the full list of Cognito users, the cognitoSub
- * linkage) isn't exposed there. Run via {@code ./run.sh <environment> [--dry-run]} - see this
- * project's README for details. New repairs are expected to be added here over time; this is
- * currently just the one.
+ * linkage, the raw booking-participants join table) isn't exposed there. Run via
+ * {@code ./run.sh <environment> [--dry-run]} - see this project's README for details.
  */
 public final class DatabaseRepair {
 
@@ -24,21 +23,41 @@ public final class DatabaseRepair {
 
         final String userPoolId = requireEnv("COGNITO_USER_POOL_ID");
         final String peopleTableName = requireEnv("PEOPLE_TABLE_NAME");
+        final String bookingsTableName = requireEnv("BOOKINGS_TABLE_NAME");
+        final String bookingParticipantsTableName = requireEnv("BOOKING_PARTICIPANTS_TABLE_NAME");
         final Region region = Region.of(requireEnv("AWS_REGION"));
-
-        System.out.println("Repair: creating a Person for every confirmed Cognito user that doesn't have one"
-                + (dryRun ? " (dry run - no changes will be made)" : "") + "...");
 
         try (CognitoIdentityProviderClient cognitoClient = CognitoIdentityProviderClient.builder().region(region).build();
                 DynamoDbClient dynamoDbClient = DynamoDbClient.builder().region(region).build()) {
 
-            final CreateMissingPersonsRepair.Result result =
-                    CreateMissingPersonsRepair.run(cognitoClient, dynamoDbClient, userPoolId, peopleTableName, dryRun);
-
+            runCreateMissingPersonsRepair(cognitoClient, dynamoDbClient, userPoolId, peopleTableName, dryRun);
             System.out.println();
-            System.out.println("Done: " + result.repaired() + " Person record(s) " + (dryRun ? "would be " : "")
-                    + "created, " + result.alreadyLinked() + " user(s) already had one.");
+            runRebuildBookingParticipantsRepair(dynamoDbClient, bookingsTableName, bookingParticipantsTableName, dryRun);
         }
+    }
+
+    private static void runCreateMissingPersonsRepair(final CognitoIdentityProviderClient cognitoClient,
+            final DynamoDbClient dynamoDbClient, final String userPoolId, final String peopleTableName, final boolean dryRun) {
+        System.out.println("Repair: creating a Person for every confirmed Cognito user that doesn't have one"
+                + (dryRun ? " (dry run - no changes will be made)" : "") + "...");
+
+        final CreateMissingPersonsRepair.Result result =
+                CreateMissingPersonsRepair.run(cognitoClient, dynamoDbClient, userPoolId, peopleTableName, dryRun);
+
+        System.out.println("Done: " + result.repaired() + " Person record(s) " + (dryRun ? "would be " : "")
+                + "created, " + result.alreadyLinked() + " user(s) already had one.");
+    }
+
+    private static void runRebuildBookingParticipantsRepair(final DynamoDbClient dynamoDbClient, final String bookingsTableName,
+            final String bookingParticipantsTableName, final boolean dryRun) {
+        System.out.println("Repair: rebuilding booking-participants from the bookings table"
+                + (dryRun ? " (dry run - no changes will be made)" : "") + "...");
+
+        final RebuildBookingParticipantsRepair.Result result =
+                RebuildBookingParticipantsRepair.run(dynamoDbClient, bookingsTableName, bookingParticipantsTableName, dryRun);
+
+        System.out.println("Done: " + result.created() + " participant row(s) " + (dryRun ? "would be " : "") + "created, "
+                + result.removed() + " " + (dryRun ? "would be " : "") + "removed, " + result.alreadyCorrect() + " already correct.");
     }
 
     private static String requireEnv(final String name) {
