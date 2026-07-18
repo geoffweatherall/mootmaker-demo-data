@@ -1,16 +1,16 @@
-package com.roombooking.tools.databaserepair;
+package com.mootmaker.tools.databaserepair;
 
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
 import module java.base;
 
 /**
- * Mirrors just enough of room-booking-api's BookingRecord to compute a booking's expected
- * booking-participants rows: {@code id}, {@code organiserId}, {@code attendeeIds},
+ * Mirrors just enough of mootmaker-api's MeetingRecord to compute a meeting's expected
+ * meeting-participants rows: {@code id}, {@code organiserId}, {@code attendeeIds},
  * {@code startTime}, {@code endTime} - {@code roomId} and {@code subject} aren't needed here.
  * Deliberately duplicated rather than shared - see {@link Person}'s doc comment for why.
  */
-record BookingRecord(String id, String organiserId, List<String> attendeeIds, String startTime, String endTime) {
+record MeetingRecord(String id, String organiserId, List<String> attendeeIds, String startTime, String endTime) {
 
     Map<String, AttributeValue> toItem() {
         final Map<String, AttributeValue> item = new HashMap<>();
@@ -24,9 +24,9 @@ record BookingRecord(String id, String organiserId, List<String> attendeeIds, St
         return item;
     }
 
-    static BookingRecord fromItem(final Map<String, AttributeValue> item) {
+    static MeetingRecord fromItem(final Map<String, AttributeValue> item) {
         final List<String> attendeeIds = item.get("attendeeIds").l().stream().map(AttributeValue::s).toList();
-        return new BookingRecord(
+        return new MeetingRecord(
                 item.get("id").s(),
                 item.get("organiserId").s(),
                 attendeeIds,

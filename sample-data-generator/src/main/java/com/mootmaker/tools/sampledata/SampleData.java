@@ -1,4 +1,4 @@
-package com.roombooking.tools.sampledata;
+package com.mootmaker.tools.sampledata;
 
 import module java.base;
 

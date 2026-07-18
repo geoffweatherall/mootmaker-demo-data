@@ -1,4 +1,4 @@
-package com.roombooking.tools.sampledata;
+package com.mootmaker.tools.sampledata;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -7,7 +7,7 @@ import module java.base;
 import module java.net.http;
 
 /**
- * Minimal HTTP client for executing GraphQL operations against a deployed room-booking-api
+ * Minimal HTTP client for executing GraphQL operations against a deployed mootmaker-api
  * environment. Adapted from the API project's {@code verify} module's GraphQlClient - the two
  * are separate Maven projects with no shared-code mechanism, so this is intentionally duplicated
  * rather than referenced.
@@ -30,7 +30,7 @@ class GraphQlClient {
      * id and secret are exchanged at the Cognito token endpoint for a JWT access token, so no
      * human user or password is involved. Reads GRAPHQL_API_URL, COGNITO_TOKEN_URL,
      * COGNITO_TEST_CLIENT_ID, COGNITO_TEST_CLIENT_SECRET and COGNITO_TEST_SCOPE from the
-     * environment (exported by run.sh via the room-booking-api project's authenticate.sh).
+     * environment (exported by run.sh via the mootmaker-api project's authenticate.sh).
      */
     static GraphQlClient fromEnvironment() {
         return new GraphQlClient(requireEnv("GRAPHQL_API_URL"), fetchAccessToken());

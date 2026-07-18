@@ -1,4 +1,4 @@
-package com.roombooking.tools.databaserepair;
+package com.mootmaker.tools.databaserepair;
 
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.AttributeType;

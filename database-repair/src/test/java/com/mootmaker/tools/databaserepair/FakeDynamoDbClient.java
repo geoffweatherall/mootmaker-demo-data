@@ -1,4 +1,4 @@
-package com.roombooking.tools.databaserepair;
+package com.mootmaker.tools.databaserepair;
 
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -57,7 +57,7 @@ class FakeDynamoDbClient implements DynamoDbClient {
         return ScanResponse.builder().items(items).count(items.size()).build();
     }
 
-    /** Matches on every attribute in key, not just "id" - booking-participants is keyed by personId+sortKey. */
+    /** Matches on every attribute in key, not just "id" - meeting-participants is keyed by personId+sortKey. */
     @Override
     public DeleteItemResponse deleteItem(final DeleteItemRequest request) {
         final List<Map<String, AttributeValue>> items = tables.get(request.tableName());

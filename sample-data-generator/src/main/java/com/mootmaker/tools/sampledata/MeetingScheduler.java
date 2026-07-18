@@ -1,9 +1,9 @@
-package com.roombooking.tools.sampledata;
+package com.mootmaker.tools.sampledata;
 
 import module java.base;
 
 /**
- * Pure scheduling logic (no network calls) for generating a realistic-looking set of bookings
+ * Pure scheduling logic (no network calls) for generating a realistic-looking set of meetings
  * across a set of rooms over a range of business days (which may include days in the past), within
  * business hours. Meetings are scheduled sequentially within each room (so a room is never
  * double-booked), but different rooms are scheduled independently, so meetings in different rooms
@@ -16,7 +16,7 @@ import module java.base;
  * being booked back-to-back, and meetings vary between small catch-ups and room-filling sessions
  * that use at least half the room's capacity.
  */
-final class BookingScheduler {
+final class MeetingScheduler {
 
     /** Meeting durations to vary between, all multiples of 5 minutes (the API's boundary rule). */
     private static final List<Integer> DURATION_MINUTES_OPTIONS = List.of(15, 30, 45, 60, 90, 120);
@@ -72,7 +72,7 @@ final class BookingScheduler {
     record RoomInfo(String id, int capacity) {
     }
 
-    record GeneratedBooking(String roomId, String subject, String organiserId, List<String> attendeeIds,
+    record GeneratedMeeting(String roomId, String subject, String organiserId, List<String> attendeeIds,
             LocalDateTime startTime, LocalDateTime endTime) {
     }
 
@@ -83,11 +83,11 @@ final class BookingScheduler {
         }
     }
 
-    private BookingScheduler() {
+    private MeetingScheduler() {
     }
 
     /**
-     * Generates bookings for every business day (Monday-Friday) from {@code startDayOffset} to
+     * Generates meetings for every business day (Monday-Friday) from {@code startDayOffset} to
      * {@code endDayOffsetInclusive} days relative to today (negative for days in the past), for
      * every room in {@code rooms}. Each room gets 0-2 sequential, non-overlapping meetings per day
      * (fewer if the day's random starting point leaves little business-hours time, or people are
@@ -96,9 +96,9 @@ final class BookingScheduler {
      * capacity, the rest are small catch-ups. Every participant (organiser or attendee) is only
      * ever in one meeting at a time across the whole generated schedule, regardless of room.
      */
-    static List<GeneratedBooking> generate(final List<RoomInfo> rooms, final List<String> personIds,
+    static List<GeneratedMeeting> generate(final List<RoomInfo> rooms, final List<String> personIds,
             final int startDayOffset, final int endDayOffsetInclusive, final Random random) {
-        final List<GeneratedBooking> bookings = new ArrayList<>();
+        final List<GeneratedMeeting> meetings = new ArrayList<>();
         final Map<String, List<Interval>> busyByPerson = new HashMap<>();
         final LocalDate today = LocalDate.now();
 
@@ -109,15 +109,15 @@ final class BookingScheduler {
                 continue;
             }
             for (final RoomInfo room : rooms) {
-                bookings.addAll(generateForRoomDay(room, day, personIds, busyByPerson, random));
+                meetings.addAll(generateForRoomDay(room, day, personIds, busyByPerson, random));
             }
         }
-        return bookings;
+        return meetings;
     }
 
-    private static List<GeneratedBooking> generateForRoomDay(final RoomInfo room, final LocalDate day,
+    private static List<GeneratedMeeting> generateForRoomDay(final RoomInfo room, final LocalDate day,
             final List<String> personIds, final Map<String, List<Interval>> busyByPerson, final Random random) {
-        final List<GeneratedBooking> roomDayBookings = new ArrayList<>();
+        final List<GeneratedMeeting> roomDayMeetings = new ArrayList<>();
         final LocalDateTime dayEnd = day.atTime(BUSINESS_DAY_END_HOUR, 0);
         LocalDateTime searchFrom = randomStartOfDay(day, random);
 
@@ -126,14 +126,14 @@ final class BookingScheduler {
                 break;
             }
 
-            final GeneratedBooking booking = findAndPlaceMeeting(room, dayEnd, searchFrom, personIds, busyByPerson, random);
-            if (booking == null) {
+            final GeneratedMeeting meeting = findAndPlaceMeeting(room, dayEnd, searchFrom, personIds, busyByPerson, random);
+            if (meeting == null) {
                 break;
             }
-            roomDayBookings.add(booking);
-            searchFrom = booking.endTime();
+            roomDayMeetings.add(meeting);
+            searchFrom = meeting.endTime();
         }
-        return roomDayBookings;
+        return roomDayMeetings;
     }
 
     /**
@@ -151,7 +151,7 @@ final class BookingScheduler {
      * first time at which both business-hours time remains for some meeting duration AND at least
      * {@link #MIN_PARTICIPANTS} people are free.
      */
-    private static GeneratedBooking findAndPlaceMeeting(final RoomInfo room, final LocalDateTime dayEnd,
+    private static GeneratedMeeting findAndPlaceMeeting(final RoomInfo room, final LocalDateTime dayEnd,
             final LocalDateTime searchFrom, final List<String> personIds, final Map<String, List<Interval>> busyByPerson,
             final Random random) {
         for (LocalDateTime candidateStart = searchFrom; candidateStart.isBefore(dayEnd);
@@ -196,7 +196,7 @@ final class BookingScheduler {
             }
 
             final String subject = SampleData.MEETING_SUBJECTS.get(random.nextInt(SampleData.MEETING_SUBJECTS.size()));
-            return new GeneratedBooking(room.id(), subject, organiserId, attendeeIds, startTime, endTime);
+            return new GeneratedMeeting(room.id(), subject, organiserId, attendeeIds, startTime, endTime);
         }
         return null;
     }

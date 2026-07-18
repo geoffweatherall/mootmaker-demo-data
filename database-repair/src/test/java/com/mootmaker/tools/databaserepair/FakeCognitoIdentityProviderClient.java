@@ -1,4 +1,4 @@
-package com.roombooking.tools.databaserepair;
+package com.mootmaker.tools.databaserepair;
 
 import software.amazon.awssdk.services.cognitoidentityprovider.CognitoIdentityProviderClient;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.ListUsersRequest;

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Resets the given room-booking-api environment and populates it with sample data (40 people,
-# 10 rooms, bookings across every business day from a week ago to seven weeks ahead). Talks to the
-# room-booking-api deployment of the given environment name in the sibling checkout (see the
-# room-booking project README for the multi-environment how-to).
-# NOTE: this calls the `reset` mutation, which deletes all rooms and bookings (and any person not
+# Resets the given mootmaker-api environment and populates it with sample data (40 people,
+# 10 rooms, meetings across every business day from a week ago to seven weeks ahead). Talks to the
+# mootmaker-api deployment of the given environment name in the sibling checkout (see the
+# mootmaker project README for the multi-environment how-to).
+# NOTE: this calls the `reset` mutation, which deletes all rooms and meetings (and any person not
 # linked to a Cognito account) in the target environment. Never point this at production.
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -28,9 +28,9 @@ fi
 
 echo "Generating sample data for '${environment}'..."
 
-api_dir="../../room-booking-api"
+api_dir="../../mootmaker-api"
 if [[ ! -f "${api_dir}/authenticate.sh" ]]; then
-  echo "Expected to find the room-booking-api checkout at ${api_dir} (as a sibling of room-booking-tools)." >&2
+  echo "Expected to find the mootmaker-api checkout at ${api_dir} (as a sibling of mootmaker-tools)." >&2
   exit 1
 fi
 

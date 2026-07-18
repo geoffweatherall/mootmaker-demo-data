@@ -1,4 +1,4 @@
-package com.roombooking.tools.sampledata;
+package com.mootmaker.tools.sampledata;
 
 import org.junit.jupiter.api.Test;
 
@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Covers {@code SampleDataGenerator.runInParallel}, the bounded-concurrency helper used to speed up createPerson/createRoom/createBooking calls. */
+/** Covers {@code SampleDataGenerator.runInParallel}, the bounded-concurrency helper used to speed up createPerson/createRoom/createMeeting calls. */
 class SampleDataGeneratorConcurrencyTest {
 
     @Test

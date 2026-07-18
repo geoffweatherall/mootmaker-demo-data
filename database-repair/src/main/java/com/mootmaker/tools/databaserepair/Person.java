@@ -1,11 +1,11 @@
-package com.roombooking.tools.databaserepair;
+package com.mootmaker.tools.databaserepair;
 
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
 import module java.base;
 
 /**
- * Mirrors just enough of room-booking-api's Person model to write a compatible DynamoDB item:
+ * Mirrors just enough of mootmaker-api's Person model to write a compatible DynamoDB item:
  * {@code id}, {@code name}, and {@code cognitoSub} (the Cognito user's {@code sub}, which links
  * this Person back to their account - see the API's {@code PersonRepository} /
  * {@code cognitoSub-index} GSI). Deliberately duplicated rather than shared - this is a separate

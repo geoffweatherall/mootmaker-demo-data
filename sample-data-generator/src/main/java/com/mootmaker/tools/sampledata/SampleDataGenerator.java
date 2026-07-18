@@ -1,15 +1,15 @@
-package com.roombooking.tools.sampledata;
+package com.mootmaker.tools.sampledata;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.roombooking.tools.sampledata.BookingScheduler.GeneratedBooking;
-import com.roombooking.tools.sampledata.BookingScheduler.RoomInfo;
+import com.mootmaker.tools.sampledata.MeetingScheduler.GeneratedMeeting;
+import com.mootmaker.tools.sampledata.MeetingScheduler.RoomInfo;
 import net.datafaker.Faker;
 
 import module java.base;
 
 /**
- * Resets a deployed room-booking-api environment and populates it with realistic sample data:
- * 40 newly-created people, 10 rooms, and bookings across every business day from a week ago to
+ * Resets a deployed mootmaker-api environment and populates it with realistic sample data:
+ * 40 newly-created people, 10 rooms, and meetings across every business day from a week ago to
  * seven weeks from now. Anyone already in the system with a linked Cognito account (real users who
  * have signed up - the only people {@code reset} doesn't delete) is booked into meetings
  * alongside the 40 new people, rather than only the newly-created ones. Run via
@@ -23,13 +23,13 @@ public final class SampleDataGenerator {
     private static final int DAYS_IN_FUTURE = 49;
     private static final int MIN_ROOM_CAPACITY = 4;
     private static final int MAX_ROOM_CAPACITY = 20;
-    private static final DateTimeFormatter BOOKING_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+    private static final DateTimeFormatter MEETING_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
 
     /**
-     * Every createPerson/createRoom/createBooking call is an independent network round trip (each
-     * one its own AppSync request + Lambda invocation), and - critically - {@link BookingScheduler}
+     * Every createPerson/createRoom/createMeeting call is an independent network round trip (each
+     * one its own AppSync request + Lambda invocation), and - critically - {@link MeetingScheduler}
      * has already resolved the full schedule up front with no overlapping room or person times
-     * across the whole run (see its own tests), so the order bookings are actually submitted in
+     * across the whole run (see its own tests), so the order meetings are actually submitted in
      * doesn't matter and they can safely go in parallel rather than one at a time. Capped well
      * below AppSync/Lambda's default concurrency limits so this doesn't look like a burst of
      * traffic against a small demo deployment or exhaust the JVM's HTTP connection pool.
@@ -52,7 +52,7 @@ public final class SampleDataGenerator {
         final List<PersonInfo> existingPeople = fetchExistingPeople(client);
         if (!existingPeople.isEmpty()) {
             System.out.println("Found " + existingPeople.size()
-                    + " existing person(s) with a Cognito account; including them when booking meetings...");
+                    + " existing person(s) with a Cognito account; including them when scheduling meetings...");
             for (final PersonInfo person : existingPeople) {
                 System.out.println("  " + person.name());
             }
@@ -70,16 +70,16 @@ public final class SampleDataGenerator {
         System.out.println("Creating " + ROOM_COUNT + " rooms...");
         final List<RoomInfo> rooms = createRooms(client, random);
 
-        final List<GeneratedBooking> bookings = BookingScheduler.generate(rooms, bookablePersonIds, -DAYS_IN_PAST,
+        final List<GeneratedMeeting> meetings = MeetingScheduler.generate(rooms, bookablePersonIds, -DAYS_IN_PAST,
                 DAYS_IN_FUTURE, random);
-        System.out.println("Creating " + bookings.size() + " bookings from " + DAYS_IN_PAST + " days ago to "
+        System.out.println("Creating " + meetings.size() + " meetings from " + DAYS_IN_PAST + " days ago to "
                 + DAYS_IN_FUTURE + " days ahead...");
-        runInParallel(bookings, booking -> createBooking(client, booking));
+        runInParallel(meetings, meeting -> createMeeting(client, meeting));
 
         System.out.println();
         System.out.println("Done: " + newPersonIds.size() + " new people (+" + existingPeople.size()
-                + " existing Cognito-linked person(s)), " + rooms.size() + " rooms, " + bookings.size()
-                + " bookings created.");
+                + " existing Cognito-linked person(s)), " + rooms.size() + " rooms, " + meetings.size()
+                + " meetings created.");
     }
 
     private record PersonInfo(String id, String name) {
@@ -142,22 +142,22 @@ public final class SampleDataGenerator {
         return List.of(rooms);
     }
 
-    private static void createBooking(final GraphQlClient client, final GeneratedBooking booking) {
-        final String mutation = "mutation CreateBooking($booking: BookingInput!) { "
-                + "createBooking(booking: $booking) { booking { id } errors } }";
+    private static void createMeeting(final GraphQlClient client, final GeneratedMeeting meeting) {
+        final String mutation = "mutation CreateMeeting($meeting: MeetingInput!) { "
+                + "createMeeting(meeting: $meeting) { meeting { id } errors } }";
         final Map<String, Object> input = new HashMap<>();
-        input.put("roomId", booking.roomId());
-        input.put("organiserId", booking.organiserId());
-        input.put("attendeeIds", booking.attendeeIds());
-        input.put("subject", booking.subject());
-        input.put("startTime", booking.startTime().format(BOOKING_TIME_FORMAT));
-        input.put("endTime", booking.endTime().format(BOOKING_TIME_FORMAT));
+        input.put("roomId", meeting.roomId());
+        input.put("organiserId", meeting.organiserId());
+        input.put("attendeeIds", meeting.attendeeIds());
+        input.put("subject", meeting.subject());
+        input.put("startTime", meeting.startTime().format(MEETING_TIME_FORMAT));
+        input.put("endTime", meeting.endTime().format(MEETING_TIME_FORMAT));
 
-        final JsonNode result = client.execute(mutation, Map.of("booking", input));
-        final JsonNode payload = result.get("createBooking");
-        failIfErrors(payload, "createBooking(" + booking.subject() + ")");
-        System.out.println("  " + booking.subject() + " - " + booking.startTime().format(BOOKING_TIME_FORMAT)
-                + " to " + booking.endTime().format(BOOKING_TIME_FORMAT));
+        final JsonNode result = client.execute(mutation, Map.of("meeting", input));
+        final JsonNode payload = result.get("createMeeting");
+        failIfErrors(payload, "createMeeting(" + meeting.subject() + ")");
+        System.out.println("  " + meeting.subject() + " - " + meeting.startTime().format(MEETING_TIME_FORMAT)
+                + " to " + meeting.endTime().format(MEETING_TIME_FORMAT));
     }
 
     private static void failIfErrors(final JsonNode payload, final String operationDescription) {
@@ -169,7 +169,7 @@ public final class SampleDataGenerator {
 
     /**
      * Runs {@code action} for every item, on a bounded pool of {@value #MAX_CONCURRENT_REQUESTS}
-     * threads, and waits for them all to finish. The first failure (e.g. a rejected booking) is
+     * threads, and waits for them all to finish. The first failure (e.g. a rejected meeting) is
      * rethrown after every task has completed, same as the sequential loop this replaces would
      * have failed on the first bad item - just not necessarily the same item, since order isn't
      * guaranteed under parallel execution. Package-private (rather than private) so

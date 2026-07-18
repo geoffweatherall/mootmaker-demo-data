@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>com.roombooking</groupId>
+  <groupId>com.mootmaker</groupId>
   <artifactId>database-repair</artifactId>
   <version>1.0.0</version>
   <packaging>jar</packaging>
@@ -13,7 +13,7 @@
     <maven.compiler.release>25</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <awssdk.version>2.46.7</awssdk.version>
-    <exec.mainClass>com.roombooking.tools.databaserepair.DatabaseRepair</exec.mainClass>
+    <exec.mainClass>com.mootmaker.tools.databaserepair.DatabaseRepair</exec.mainClass>
   </properties>
 
   <dependencyManagement>
