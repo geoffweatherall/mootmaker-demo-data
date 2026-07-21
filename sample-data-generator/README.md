@@ -1,6 +1,6 @@
 # sample-data-generator
 
-Resets a deployed [mootmaker-api](https://github.com/geoffweatherall/mootmaker-api) environment and populates it with realistic-looking sample data, so a non-production environment (or a fresh personal sandbox) has something worth looking at without manually clicking through the webapp.
+Resets a deployed [mootmaker-api](https://github.com/geoffweatherall/mootmaker-api) environment and populates it with realistic-looking sample data, so the environment (production included — this project's production is a demo, not a real user-facing system) has something worth looking at without manually clicking through the webapp.
 
 ## What it does
 
@@ -55,9 +55,9 @@ Done: 40 new people (+2 existing Cognito-linked person(s)), 10 rooms, 604 meetin
 ./run.sh <environment>
 ```
 
-For example, `./run.sh test`. This reads the target environment's Cognito/GraphQL settings from `mootmaker-api`'s Terraform outputs (via its `authenticate.sh`, using the same client_credentials M2M auth as the API's own acceptance tests — no username or password involved), then builds and runs the generator.
+For example, `./run.sh test` or `./run.sh production`. This reads the target environment's Cognito/GraphQL settings from `mootmaker-api`'s Terraform outputs (via its `authenticate.sh`, using the same client_credentials M2M auth as the API's own acceptance tests — no username or password involved), then builds and runs the generator.
 
-**`run.sh` refuses to run against any environment whose name starts with `prod`** (case-insensitive), regardless of any other argument — this tool calls `reset`, so it must never be pointed at a production environment.
+Safe to run against `production` too — this project's production deployment is itself a demo environment, not a real user-facing system, so keeping it populated with realistic sample data is the point.
 
 ## Why a Maven project instead of a script
 

@@ -8,5 +8,5 @@ This checkout expects `mootmaker-api` to be a sibling directory - tools authenti
 
 | Tool | Purpose |
 |---|---|
-| [sample-data-generator](sample-data-generator/README.md) | Resets a non-production environment and populates it with realistic sample people, rooms, and meetings |
+| [sample-data-generator](sample-data-generator/README.md) | Resets an environment (including production, which is itself a demo) and populates it with realistic sample people, rooms, and meetings |
 | [database-repair](database-repair/README.md) | Runs one-off maintenance repairs directly against Cognito/DynamoDB - currently, creating a Person for every confirmed Cognito user that doesn't have one |
