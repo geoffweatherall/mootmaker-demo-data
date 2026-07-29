@@ -1,2 +1,13 @@
 # Maven build output
 target/
+dependency-reduced-pom.xml
+
+# Terraform
+.terraform/
+.terraform-*/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+crash.log
+crash.*.log

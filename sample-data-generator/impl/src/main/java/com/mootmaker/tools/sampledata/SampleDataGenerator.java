@@ -11,11 +11,13 @@ import module java.base;
  * Resets a deployed mootmaker-api environment and populates it with realistic sample data:
  * 40 newly-created people, 10 rooms, and meetings across every business day from a week ago to
  * seven weeks from now. Anyone already in the system with a linked Cognito account (real users who
- * have signed up - the only people {@code reset} doesn't delete) is booked into meetings
- * alongside the 40 new people, rather than only the newly-created ones. Run via
- * {@code ./run.sh <environment>} - see that script and this project's README for details.
+ * have signed up - the only people the reset step doesn't delete, via
+ * {@link DatabaseResetInvoker}) is booked into meetings alongside the 40 new people, rather than
+ * only the newly-created ones. Deployed as a Lambda function and invoked via
+ * {@code ./run.sh <environment>} - see {@link GenerateSampleDataHandler}, that script, and this
+ * project's README for details.
  */
-public final class SampleDataGenerator {
+final class SampleDataGenerator {
 
     private static final int PERSON_COUNT = 40;
     private static final int ROOM_COUNT = 10;
@@ -39,13 +41,21 @@ public final class SampleDataGenerator {
     private SampleDataGenerator() {
     }
 
-    public static void main(final String[] args) {
-        final GraphQlClient client = GraphQlClient.fromEnvironment();
+    /** Summary of a completed run, returned as the Lambda invocation's response payload. */
+    record Summary(int newPeopleCreated, int existingCognitoLinkedPeople, int roomsCreated, int meetingsCreated) {
+    }
+
+    /**
+     * Runs a full reset-and-repopulate pass against whatever environment {@code client} is
+     * authenticated against. Extracted from the tool's original {@code main} method so
+     * {@link GenerateSampleDataHandler} can invoke it as a Lambda; the logic itself is unchanged.
+     */
+    static Summary generate(final GraphQlClient client) {
         final Faker faker = new Faker();
         final Random random = new Random();
 
         System.out.println("Resetting environment...");
-        client.execute("mutation { reset }");
+        DatabaseResetInvoker.invoke();
 
         // Only people linked to a Cognito account survive reset, so whatever's left at this point
         // is exactly that set - real signed-up users, not sample data from a previous run.
@@ -80,6 +90,8 @@ public final class SampleDataGenerator {
         System.out.println("Done: " + newPersonIds.size() + " new people (+" + existingPeople.size()
                 + " existing Cognito-linked person(s)), " + rooms.size() + " rooms, " + meetings.size()
                 + " meetings created.");
+
+        return new Summary(newPersonIds.size(), existingPeople.size(), rooms.size(), meetings.size());
     }
 
     private record PersonInfo(String id, String name) {
