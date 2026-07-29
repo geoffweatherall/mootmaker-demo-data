@@ -42,15 +42,18 @@ final class CreateMissingPersonsRepair {
         final List<UserType> users = listConfirmedUsers(cognitoClient, userPoolId);
         System.out.println("Found " + users.size() + " confirmed Cognito user(s).");
 
-        int repaired = 0;
-        int alreadyLinked = 0;
-        for (final UserType user : users) {
+        // Each user's check-and-create is independent of every other user's (a different
+        // cognitoSub), so they run on DatabaseRepairHandler's bounded thread pool rather than one
+        // at a time - the DynamoDB SDK client is safe to share across threads.
+        final AtomicInteger repaired = new AtomicInteger();
+        final AtomicInteger alreadyLinked = new AtomicInteger();
+        DatabaseRepairHandler.runInParallel(users, user -> {
             final String cognitoSub = requireAttribute(user, "sub");
             final String email = requireAttribute(user, "email");
 
             if (findPersonByCognitoSub(dynamoDbClient, peopleTableName, cognitoSub).isPresent()) {
-                alreadyLinked++;
-                continue;
+                alreadyLinked.incrementAndGet();
+                return;
             }
 
             final String name = emailLocalPart(email);
@@ -62,9 +65,9 @@ final class CreateMissingPersonsRepair {
                         .item(person.toItem())
                         .build());
             }
-            repaired++;
-        }
-        return new Result(repaired, alreadyLinked);
+            repaired.incrementAndGet();
+        });
+        return new Result(repaired.get(), alreadyLinked.get());
     }
 
     /** The part of an email address before the "@"; the email itself if there's no "@". */

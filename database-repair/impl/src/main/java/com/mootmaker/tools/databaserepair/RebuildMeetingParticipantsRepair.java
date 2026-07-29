@@ -47,14 +47,25 @@ final class RebuildMeetingParticipantsRepair {
             existing.put(key(participant), participant);
         }
 
-        int created = 0;
+        final List<MeetingParticipant> toCreate = new ArrayList<>();
         int alreadyCorrect = 0;
         for (final Map.Entry<String, MeetingParticipant> entry : expected.entrySet()) {
             if (existing.containsKey(entry.getKey())) {
                 alreadyCorrect++;
-                continue;
+            } else {
+                toCreate.add(entry.getValue());
             }
-            final MeetingParticipant participant = entry.getValue();
+        }
+
+        final List<MeetingParticipant> toRemove = existing.entrySet().stream()
+                .filter(entry -> !expected.containsKey(entry.getKey()))
+                .map(Map.Entry::getValue)
+                .toList();
+
+        // Every row created or removed here is independent of every other one, so both passes run
+        // on DatabaseRepairHandler's bounded thread pool rather than one row at a time - the
+        // DynamoDB SDK client is safe to share across threads.
+        DatabaseRepairHandler.runInParallel(toCreate, participant -> {
             System.out.println("  creating participant row: person " + participant.personId() + ", meeting "
                     + participant.meetingId() + (dryRun ? " (dry run)" : ""));
             if (!dryRun) {
@@ -63,15 +74,9 @@ final class RebuildMeetingParticipantsRepair {
                         .item(participant.toItem())
                         .build());
             }
-            created++;
-        }
+        });
 
-        int removed = 0;
-        for (final Map.Entry<String, MeetingParticipant> entry : existing.entrySet()) {
-            if (expected.containsKey(entry.getKey())) {
-                continue;
-            }
-            final MeetingParticipant participant = entry.getValue();
+        DatabaseRepairHandler.runInParallel(toRemove, participant -> {
             System.out.println("  removing stale participant row: person " + participant.personId() + ", meeting "
                     + participant.meetingId() + (dryRun ? " (dry run)" : ""));
             if (!dryRun) {
@@ -82,10 +87,9 @@ final class RebuildMeetingParticipantsRepair {
                                 "sortKey", AttributeValue.builder().s(participant.sortKey()).build()))
                         .build());
             }
-            removed++;
-        }
+        });
 
-        return new Result(created, removed, alreadyCorrect);
+        return new Result(toCreate.size(), toRemove.size(), alreadyCorrect);
     }
 
     private static String key(final MeetingParticipant participant) {
