@@ -1,12 +1,18 @@
 # mootmaker-tools
 
-Admin/support tools for the [mootmaker](https://github.com/geoffweatherall/mootmaker) project. Unlike [mootmaker-api](https://github.com/geoffweatherall/mootmaker-api) and [mootmaker-webapp](https://github.com/geoffweatherall/mootmaker-webapp), nothing here is deployed - each tool is run locally against an already-deployed environment (see the [mootmaker project README](https://github.com/geoffweatherall/mootmaker#multi-environment-deployments) for how environments work) to help set up, exercise, or maintain that environment.
+Admin/support tools for the [mootmaker](https://github.com/geoffweatherall/mootmaker) project. Like [mootmaker-api](https://github.com/geoffweatherall/mootmaker-api) and [mootmaker-webapp](https://github.com/geoffweatherall/mootmaker-webapp), each tool here is deployed - as its own AWS Lambda function, one per target environment - to help set up, exercise, or maintain an already-deployed environment (see the [mootmaker project README](https://github.com/geoffweatherall/mootmaker#multi-environment-deployments) for how environments work). Most are invoked on demand; sample-data-topup also runs itself automatically on a schedule (see its own README).
 
-This checkout expects `mootmaker-api` to be a sibling directory - tools authenticate against a deployed environment by reading its Terraform outputs, the same way `mootmaker-webapp` does.
+This checkout expects `mootmaker-api` to be a sibling directory - both deploying a tool and invoking it read the target environment's Terraform outputs (via `mootmaker-api`'s `authenticate.sh`), the same way `mootmaker-webapp` does.
+
+Each tool follows the same layout and scripts as `mootmaker-api`: an `impl/` Maven project with the Lambda handler code, a `deploy/terraform/` directory with its Terraform, and `deploy.sh`/`undeploy.sh`/`run.sh` scripts that all take the target environment as their first argument. `deploy.sh` builds the jar and creates/updates the Lambda; `run.sh` invokes the already-deployed Lambda and prints its result; `undeploy.sh` deletes it. See each tool's own README for details and any extra `run.sh` arguments.
 
 ## Tools
 
 | Tool | Purpose |
 |---|---|
-| [sample-data-generator](sample-data-generator/README.md) | Resets an environment (including production, which is itself a demo) and populates it with realistic sample people, rooms, and meetings |
-| [database-repair](database-repair/README.md) | Runs one-off maintenance repairs directly against Cognito/DynamoDB - currently, creating a Person for every confirmed Cognito user that doesn't have one |
+| [database-reset](database-reset/README.md) | Deletes all stored rooms and meetings, and every person except those linked to a Cognito account, from an environment (including production, which is itself a demo) - formerly `Mutation.reset` in the GraphQL API |
+| [sample-data-generator](sample-data-generator/README.md) | Resets an environment (by invoking database-reset) and populates it with realistic sample people, rooms, and meetings |
+| [sample-data-topup](sample-data-topup/README.md) | Runs weekly (EventBridge schedule, no manual trigger needed) and fills in any weekday in the next 6 weeks that has no meetings at all - unlike sample-data-generator, never resets or deletes anything, so it's safe to leave running unattended |
+| [database-repair](database-repair/README.md) | Runs one-off maintenance repairs directly against Cognito/DynamoDB - currently, creating a Person for every confirmed Cognito user that doesn't have one, and reconciling the derived meeting-participants index |
+
+**Deploy ordering:** sample-data-generator invokes database-reset directly (Lambda-to-Lambda, via its own IAM role - see [sample-data-generator's README](sample-data-generator/README.md#how-it-is-deployed)) as the first step of every run, so **database-reset must be deployed to an environment before sample-data-generator is deployed or run against it**. `mootmaker-api`'s own acceptance tests have the same dependency (see the [mootmaker-api README](https://github.com/geoffweatherall/mootmaker-api#authentication-in-end-to-end-tests)). sample-data-topup works against whatever rooms/people already exist, so it's best deployed after an environment has been seeded at least once by sample-data-generator (see [sample-data-topup's README](sample-data-topup/README.md#prerequisites)). database-repair has no dependency on any other tool and can be deployed independently.
