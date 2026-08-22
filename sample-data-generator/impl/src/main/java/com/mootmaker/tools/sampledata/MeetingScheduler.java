@@ -18,7 +18,7 @@ import module java.base;
  */
 final class MeetingScheduler {
 
-    /** Meeting durations to vary between, all multiples of 5 minutes (the API's boundary rule). */
+    /** Meeting durations to vary between, all multiples of 15 minutes (the API's boundary rule). */
     private static final List<Integer> DURATION_MINUTES_OPTIONS = List.of(15, 30, 45, 60, 90, 120);
 
     private static final int BUSINESS_DAY_START_HOUR = 8;
@@ -33,8 +33,8 @@ final class MeetingScheduler {
 
     /**
      * Step used both to search for a later start time when people are contended, and to pick a
-     * room-day's random starting point. A multiple of 5 keeps every candidate start on the API's
-     * required 5-minute boundary.
+     * room-day's random starting point. A multiple of 15 keeps every candidate start on the API's
+     * required 15-minute boundary.
      */
     private static final int RETRY_STEP_MINUTES = 15;
 

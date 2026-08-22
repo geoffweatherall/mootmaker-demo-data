@@ -150,10 +150,10 @@ class MeetingSchedulerTest {
         for (final GeneratedMeeting meeting : meetings) {
             assertEquals(0, meeting.startTime().getSecond());
             assertEquals(0, meeting.startTime().getNano());
-            assertEquals(0, meeting.startTime().getMinute() % 5);
+            assertEquals(0, meeting.startTime().getMinute() % 15);
             assertEquals(0, meeting.endTime().getSecond());
             assertEquals(0, meeting.endTime().getNano());
-            assertEquals(0, meeting.endTime().getMinute() % 5);
+            assertEquals(0, meeting.endTime().getMinute() % 15);
         }
     }
 
