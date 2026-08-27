@@ -57,6 +57,10 @@ Found 604 meeting(s).
 Done: 612 participant row(s) created, 0 removed, 1200 already correct.
 ```
 
+### Known gap: stray Person records
+
+Neither repair here detects or removes a Person record left over from a Cognito user that no longer exists. [database-reset](../database-reset/README.md) only preserves a Person if its `cognitoSub` attribute is *present* - it never checks whether that Cognito user is still actually there. If a Cognito account is ever deleted and recreated (e.g. the e2e test user, if its Terraform resource is ever replaced), the old Person keeps its now-dangling `cognitoSub` forever, since reset preserves it and neither repair here has logic to spot it either (repair #1 only *creates* missing Persons; it doesn't look for orphaned ones). Such a stray record has to be deleted directly via DynamoDB - there's no tool for it yet.
+
 ## How it is deployed
 
 ```
