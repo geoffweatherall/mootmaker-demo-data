@@ -8,7 +8,7 @@ Deployed as its own AWS Lambda function, one per target environment, and invoked
 
 Invoking the tool, in order:
 
-1. Invokes [mootmaker-tools/database-reset](../database-reset/README.md), which deletes all rooms and meetings, and every person **except** those linked to a real Cognito account (e.g. anyone who's actually signed up through the webapp, and the e2e test user, are left alone — see [database-reset's README](../database-reset/README.md#what-it-does)). This is a direct Lambda-to-Lambda invocation (AWS SDK, IAM auth), not a GraphQL call - see [How it is deployed](#how-it-is-deployed).
+1. Invokes [mootmaker-admin-tools/database-reset](https://github.com/geoffweatherall/mootmaker-admin-tools/blob/main/database-reset/README.md), which deletes all rooms and meetings, and every person **except** those linked to a real Cognito account (e.g. anyone who's actually signed up through the webapp, and the e2e test user, are left alone — see [database-reset's README](https://github.com/geoffweatherall/mootmaker-admin-tools/blob/main/database-reset/README.md#what-it-does)). This is a direct Lambda-to-Lambda invocation (AWS SDK, IAM auth), not a GraphQL call - see [How it is deployed](#how-it-is-deployed).
 2. Looks up whoever is left after that reset — i.e. real signed-up users — and includes them alongside the newly-created people below when scheduling meetings, so real accounts show up with a realistic-looking calendar too, not just sample data.
 3. Creates **40 people**, with realistic full names (via [datafaker](https://www.datafaker.net/)) — enough that the room-filling meetings below can actually be staffed alongside everything else. This count doesn't change based on how many real users already exist; they're additional people to book, not a replacement for any of the 40.
 4. Creates **10 rooms**, each with a meaningful name (e.g. `Everest`, `Boardroom`, `The Hub`) and a random capacity between 4 and 20.
@@ -55,7 +55,7 @@ Done: 40 new people (+2 existing Cognito-linked person(s)), 10 rooms, 604 meetin
 ```
 
 - The Lambda authenticates to the target `mootmaker-api` environment the same way its own acceptance tests do: the OAuth2 client_credentials flow, using the `mootmaker-acceptance-tests` app client's id/secret (see the [API README's Authentication section](https://github.com/geoffweatherall/mootmaker-api#authentication)). `deploy.sh` reads those, along with the GraphQL endpoint, from the target environment's Terraform outputs and sets them as this function's environment variables (`GRAPHQL_API_URL`, `COGNITO_TOKEN_URL`, `COGNITO_TEST_CLIENT_ID`, `COGNITO_TEST_CLIENT_SECRET`, `COGNITO_TEST_SCOPE`) - see [GraphQlClient.fromEnvironment()](impl/src/main/java/com/mootmaker/tools/sampledata/GraphQlClient.java).
-- The reset step (see [What it does](#what-it-does)) invokes [database-reset](../database-reset/README.md)'s Lambda directly via the AWS SDK ([DatabaseResetInvoker](impl/src/main/java/com/mootmaker/tools/sampledata/DatabaseResetInvoker.java)), authenticated as this function's own IAM role rather than a GraphQL call. Its IAM role is granted `lambda:InvokeFunction` on exactly that one function, whose name/ARN this project's own Terraform computes deterministically from the environment name (see [deploy/terraform/locals.tf](deploy/terraform/locals.tf)) - the same way `database-reset`'s own `run.sh` does, rather than depending on that project's Terraform state directly. **This means database-reset must already be deployed for an environment before this tool is deployed or run against it** - see [mootmaker-tools' README](../README.md#tools).
+- The reset step (see [What it does](#what-it-does)) invokes [database-reset](https://github.com/geoffweatherall/mootmaker-admin-tools/blob/main/database-reset/README.md)'s Lambda directly via the AWS SDK ([DatabaseResetInvoker](impl/src/main/java/com/mootmaker/tools/sampledata/DatabaseResetInvoker.java)), authenticated as this function's own IAM role rather than a GraphQL call. Its IAM role is granted `lambda:InvokeFunction` on exactly that one function, whose name/ARN this project's own Terraform computes deterministically from the environment name (see [deploy/terraform/locals.tf](deploy/terraform/locals.tf)) - the same way `database-reset`'s own `run.sh` does, rather than depending on that project's Terraform state directly (that project now lives in a separate repository, [mootmaker-admin-tools](https://github.com/geoffweatherall/mootmaker-admin-tools), split out on 2026-08-29 by blast radius). **This means database-reset must already be deployed for an environment before this tool is deployed or run against it** - see [mootmaker-admin-tools' README](https://github.com/geoffweatherall/mootmaker-admin-tools/blob/main/README.md#tools).
 - Beyond that, the function needs no other AWS-service permissions: everything else it does is an outbound HTTPS call (to the Cognito token endpoint and the AppSync GraphQL endpoint), never touching DynamoDB or any other AWS service directly.
 - Runtime is Java 25, 512 MB, 300 s timeout - generous headroom over how long a full run actually takes (well under a minute in practice, at up to 8 concurrent GraphQL calls), given a Lambda invocation is hard-capped at 15 minutes regardless of this setting.
 - `GenerateSampleDataHandler` is the Lambda entry point; the input payload is unused (there's nothing to configure per invocation), and its response payload is a small JSON summary (counts of people/rooms/meetings created). The full step-by-step log (the same output shown above) goes to CloudWatch Logs, under `/aws/lambda/<environment>-mootmaker-sample-data-generator`.
@@ -80,23 +80,23 @@ All scripts live in the project root and are run from there:
 ## Prerequisites
 
 - Java 25 and Maven, Terraform ≥ 1.10, and the AWS CLI (same as [mootmaker-api](https://github.com/geoffweatherall/mootmaker-api)), plus `jq` (used by `run.sh` to parse the Lambda invoke response).
-- A `mootmaker-api` checkout as a sibling of `mootmaker-tools` (i.e. `mootmaker-tools` and `mootmaker-api` share a parent directory), deployed to the environment you want to target.
-- [mootmaker-tools/database-reset](../database-reset/README.md) already deployed for that same environment (this tool invokes it directly - see [How it is deployed](#how-it-is-deployed)).
+- A `mootmaker-api` checkout as a sibling of `mootmaker-demo-data` (i.e. `mootmaker-demo-data` and `mootmaker-api` share a parent directory), deployed to the environment you want to target.
+- [mootmaker-admin-tools/database-reset](https://github.com/geoffweatherall/mootmaker-admin-tools/blob/main/database-reset/README.md) already deployed for that same environment (this tool invokes it directly - see [How it is deployed](#how-it-is-deployed)).
 
 ## Usage
 
 ```bash
-# database-reset must already be deployed to this environment - see its own README
-../database-reset/deploy.sh test
+# database-reset must already be deployed to this environment - see mootmaker-admin-tools
+../../mootmaker-admin-tools/database-reset/deploy.sh bob
 
-# Deploy (build + terraform apply) to an environment, e.g. "test" or your own name
-./deploy.sh test
+# Deploy (build + terraform apply) to an environment, e.g. an ephemeral name or "production"
+./deploy.sh bob
 
 # Invoke it - resets and repopulates that environment with sample data
-./run.sh test
+./run.sh bob
 
 # Tear the Lambda down when you're done with it (the target mootmaker-api environment is untouched)
-./undeploy.sh test
+./undeploy.sh bob
 ```
 
 For example, `./deploy.sh test && ./run.sh test`, or against `production`. Safe to run against `production` too — this project's production deployment is itself a demo environment, not a real user-facing system, so keeping it populated with realistic sample data is the point.

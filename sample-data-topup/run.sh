@@ -19,7 +19,7 @@ fi
 
 api_dir="../../mootmaker-api"
 if [[ ! -f "${api_dir}/authenticate.sh" ]]; then
-  echo "Expected to find the mootmaker-api checkout at ${api_dir} (as a sibling of mootmaker-tools)." >&2
+  echo "Expected to find the mootmaker-api checkout at ${api_dir} (as a sibling of mootmaker-demo-data)." >&2
   exit 1
 fi
 

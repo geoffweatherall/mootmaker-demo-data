@@ -72,22 +72,22 @@ All scripts live in the project root and are run from there:
 ## Prerequisites
 
 - Java 25 and Maven, Terraform ≥ 1.10, and the AWS CLI (same as [mootmaker-api](https://github.com/geoffweatherall/mootmaker-api)), plus `jq` (used by `run.sh` to parse the Lambda invoke response).
-- A `mootmaker-api` checkout as a sibling of `mootmaker-tools` (i.e. `mootmaker-tools` and `mootmaker-api` share a parent directory), deployed to the environment you want to target.
+- A `mootmaker-api` checkout as a sibling of `mootmaker-demo-data` (i.e. `mootmaker-demo-data` and `mootmaker-api` share a parent directory), deployed to the environment you want to target.
 - At least one room and two people already in the target environment for there to be anything to top up with (see [What it does](#what-it-does)) - run [sample-data-generator](../sample-data-generator/README.md) first if starting from empty.
 
 ## Usage
 
 ```bash
-# Deploy (build + terraform apply) to an environment, e.g. "test" or your own name -
+# Deploy (build + terraform apply) to an environment, e.g. an ephemeral name or "production" -
 # this also creates the weekly EventBridge schedule, so no further action is needed
 # for it to keep running automatically.
-./deploy.sh test
+./deploy.sh bob
 
 # Invoke it manually any time, e.g. to top up immediately rather than waiting for the schedule
-./run.sh test
+./run.sh bob
 
 # Tear the Lambda and its schedule down when you're done with it (no data is touched)
-./undeploy.sh test
+./undeploy.sh bob
 ```
 
 Safe to run against `production` too, and safe to leave running unattended - see [What it does](#what-it-does) for why.

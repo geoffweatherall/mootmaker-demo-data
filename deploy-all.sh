@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
-# Deploys every tool in this project to the given environment, in the dependency order documented
-# in README.md's "Deploy ordering": database-reset first (sample-data-generator invokes it
-# directly, Lambda-to-Lambda, so it must already exist), then sample-data-generator, then
-# sample-data-topup (best deployed after an environment has been seeded at least once), then
-# database-repair last (no dependency on any other tool, so its position doesn't matter).
+# Deploys both demo-data tools in this project to the given environment, in dependency order:
+# sample-data-generator first (it resets the environment as the first step of every run), then
+# sample-data-topup (best deployed after an environment has been seeded at least once).
+#
+# PREREQUISITE: sample-data-generator invokes database-reset Lambda-to-Lambda as the first step
+# of every run - that tool now lives in ../mootmaker-admin-tools (split out on 2026-08-29 by
+# blast radius; it can destroy data, this repo cannot). database-reset must already be deployed
+# to this environment, or this script's first deploy will fail when sample-data-generator tries
+# to invoke a Lambda that doesn't exist yet. See README.md.
+#
 # NOTE: each tool's own deploy.sh runs `terraform apply -auto-approve`, creating real AWS
 # resources in whatever account/credentials are active. Run this deliberately, not from
 # automation.
@@ -12,7 +17,7 @@ cd "$(dirname "$0")"
 
 environment="${1:-}"
 if [[ -z "${environment}" ]]; then
-  echo "Usage: ./deploy-all.sh <environment>   (e.g. test, production, or your own name)" >&2
+  echo "Usage: ./deploy-all.sh <environment>   (e.g. production, or your own name)" >&2
   exit 1
 fi
 if [[ ! "${environment}" =~ ^[a-z0-9-]+$ ]]; then
@@ -20,9 +25,9 @@ if [[ ! "${environment}" =~ ^[a-z0-9-]+$ ]]; then
   exit 1
 fi
 
-for tool in database-reset sample-data-generator sample-data-topup database-repair; do
+for tool in sample-data-generator sample-data-topup; do
   echo "=== Deploying ${tool} to '${environment}' ==="
   ./"${tool}"/deploy.sh "${environment}"
 done
 
-echo "All tools deployed to '${environment}'."
+echo "Both demo-data tools deployed to '${environment}'."
