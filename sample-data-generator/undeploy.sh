@@ -17,5 +17,5 @@ echo "Undeploying sample-data-generator environment '${environment}'..."
 
 export TF_DATA_DIR=".terraform-${environment}"
 
-terraform -chdir=deploy/terraform init -backend-config=backend.hcl -backend-config="key=${environment}/mootmaker-tools-sample-data-generator/terraform.tfstate"
+terraform -chdir=deploy/terraform init -backend-config=backend.hcl -backend-config="key=${environment}/mootmaker-demo-data-sample-data-generator/terraform.tfstate"
 terraform -chdir=deploy/terraform destroy -var="environment=${environment}"

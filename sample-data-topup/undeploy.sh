@@ -18,5 +18,5 @@ echo "Undeploying sample-data-topup environment '${environment}'..."
 
 export TF_DATA_DIR=".terraform-${environment}"
 
-terraform -chdir=deploy/terraform init -backend-config=backend.hcl -backend-config="key=${environment}/mootmaker-tools-sample-data-topup/terraform.tfstate"
+terraform -chdir=deploy/terraform init -backend-config=backend.hcl -backend-config="key=${environment}/mootmaker-demo-data-sample-data-topup/terraform.tfstate"
 terraform -chdir=deploy/terraform destroy -var="environment=${environment}"

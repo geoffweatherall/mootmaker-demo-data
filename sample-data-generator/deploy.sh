@@ -39,7 +39,7 @@ export TF_DATA_DIR=".terraform-${environment}"
 # Passed via TF_VAR_ rather than -var so the client secret never appears in `ps` output.
 export TF_VAR_cognito_test_client_secret="${COGNITO_TEST_CLIENT_SECRET}"
 
-terraform -chdir=deploy/terraform init -backend-config=backend.hcl -backend-config="key=${environment}/mootmaker-tools-sample-data-generator/terraform.tfstate"
+terraform -chdir=deploy/terraform init -backend-config=backend.hcl -backend-config="key=${environment}/mootmaker-demo-data-sample-data-generator/terraform.tfstate"
 terraform -chdir=deploy/terraform apply -auto-approve \
   -var="environment=${environment}" \
   -var="graphql_api_url=${GRAPHQL_API_URL}" \
