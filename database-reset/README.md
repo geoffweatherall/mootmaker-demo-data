@@ -23,7 +23,7 @@ Deleted 10 room(s), 38 unlinked person(s), 604 meeting(s) (and their participant
 
 ## Why this moved out of the GraphQL API
 
-`Mutation.reset` used to be reachable by any signed-in user of the product - the [mootmaker business functionality doc](https://github.com/geoffweatherall/mootmaker/blob/main/functionality/business-functionality.md) called this out as a known gap ("not currently restricted to administrators or disabled in customer-facing settings"). Moving it here closes that gap: it's no longer part of the API surface at all, so no webapp user, however they're signed in, can reach it. The only way to invoke it now is `lambda:InvokeFunction` on this specific Lambda - an AWS IAM permission granted explicitly (see [How it is deployed](#how-it-is-deployed)), not something any product user has.
+`Mutation.reset` used to be reachable by any signed-in user of the product - the [mootmaker business functionality doc](https://github.com/geoffweatherall/mootmaker/blob/main/docs/reference/business-functionality.md) called this out as a known gap ("not currently restricted to administrators or disabled in customer-facing settings"). Moving it here closes that gap: it's no longer part of the API surface at all, so no webapp user, however they're signed in, can reach it. The only way to invoke it now is `lambda:InvokeFunction` on this specific Lambda - an AWS IAM permission granted explicitly (see [How it is deployed](#how-it-is-deployed)), not something any product user has.
 
 ## Who calls this
 
