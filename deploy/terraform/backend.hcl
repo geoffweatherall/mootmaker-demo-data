@@ -4,5 +4,5 @@ use_lockfile = true
 
 # `key` is deliberately not set here - it's supplied per-environment at init
 # time (see deploy.sh/undeploy.sh), so state lives at
-# <environment>/mootmaker-tools-sample-data-topup/terraform.tfstate in this bucket - the same
+# <environment>/mootmaker-demo-data/terraform.tfstate in this bucket - the same
 # bucket mootmaker-api/mootmaker-webapp use, per mootmaker-bootstrap-terraform's README.
