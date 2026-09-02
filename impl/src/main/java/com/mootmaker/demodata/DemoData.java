@@ -14,7 +14,7 @@ import module java.base;
  * done.
  *
  * <p><b>This tool never deletes anything.</b> It has no reset path and no way to reach one - see
- * mootmaker/designs/demo-data-component.md. Clearing an environment is a separate, deliberate
+ * mootmaker/designs/archive/demo-data-component.md. Clearing an environment is a separate, deliberate
  * invocation of mootmaker-api's own database-reset Lambda, run by hand before this one. Its
  * predecessor sample-data-generator reset the database as the first step of every run, behind a
  * script called {@code run.sh}; that is exactly the property this design removed.

@@ -15,7 +15,7 @@ and meetings. One of the project's three deployable components, alongside `mootm
   way to reach one. Its predecessor `sample-data-generator` reset the database as the first step of
   every run, behind a script called `run.sh`; removing that is the single most important property of
   the current design. A request to "just add a reset flag" should be read against
-  [`mootmaker/designs/demo-data-component.md`](https://github.com/geoffweatherall/mootmaker/blob/main/designs/demo-data-component.md)
+  [`mootmaker/designs/demo-data-component.md`](https://github.com/geoffweatherall/mootmaker/blob/main/designs/archive/demo-data-component.md)
   before it is acted on. Clearing an environment is a separate, deliberate invocation of
   `mootmaker-api`'s `database-reset`.
 - **Every write goes through the GraphQL API**, never DynamoDB directly. That is what makes
