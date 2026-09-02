@@ -61,8 +61,13 @@ Magnitudes — how many people and rooms, how wide the window — are Terraform 
 payload fields, so a mistyped invocation can switch a concern off but can never ask for 4,000
 people.
 
-Only one run happens at a time: the function has a reserved concurrency of 1, so a second
-overlapping invocation is throttled rather than racing the first.
+Runs are not serialised. The function would reserve a concurrency of 1 to make overlap
+structurally impossible, but this AWS account's total Lambda concurrency quota is 10 and AWS refuses
+any reservation leaving fewer than 10 unreserved — so no value is settable. This is an accepted
+risk: overlap needs a manual invoke to land inside the few seconds the daily scheduled run is
+active, and the worst case is a few extra rooms or people in a demo environment, after which the
+next run is a no-op again because every concern is defined by its target rather than by what it last
+did.
 
 ### To clear and repopulate
 
