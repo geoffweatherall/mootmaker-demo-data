@@ -6,7 +6,7 @@ blast radius: this repo now holds only tooling that ships as part of the product
 tooling that can destroy data. (Those two tools briefly lived in their own repository,
 `mootmaker-admin-tools`, before moving into
 [mootmaker-api](https://github.com/geoffweatherall/mootmaker-api) itself on 2026-09-02 — see
-[mootmaker/designs/admin-tools-into-api.md](https://github.com/geoffweatherall/mootmaker/blob/main/designs/admin-tools-into-api.md).
+[mootmaker/designs/admin-tools-into-api.md](https://github.com/geoffweatherall/mootmaker/blob/main/designs/archive/admin-tools-into-api.md).
 `mootmaker-admin-tools` no longer exists.)
 
 Like [mootmaker-api](https://github.com/geoffweatherall/mootmaker-api) and

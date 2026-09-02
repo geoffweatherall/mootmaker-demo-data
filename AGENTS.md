@@ -18,7 +18,7 @@ only tooling that ships as part of the production demo, never anything that can 
   environment before `sample-data-generator` is deployed or run there. This dependency briefly
   crossed a third repository, `mootmaker-admin-tools` (2026-08-29 to 2026-09-02), before
   `database-reset`/`database-repair` moved into `mootmaker-api` itself — see
-  [`mootmaker/designs/admin-tools-into-api.md`](https://github.com/geoffweatherall/mootmaker/blob/main/designs/admin-tools-into-api.md).
+  [`mootmaker/designs/admin-tools-into-api.md`](https://github.com/geoffweatherall/mootmaker/blob/main/designs/archive/admin-tools-into-api.md).
   `mootmaker-admin-tools` no longer exists.
 - **Neither tool here can destroy data.** That is the whole point of the original split — see
   `../mootmaker-api` for `database-reset`/`database-repair`, the tools that can.
