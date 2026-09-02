@@ -61,3 +61,9 @@ variable "schedule_enabled" {
   type        = bool
   default     = null
 }
+
+variable "reserved_concurrency" {
+  description = "Reserved concurrent executions for the Lambda. 1 is what this component wants - it makes overlapping runs structurally impossible - but AWS rejects any reservation that would leave the account with fewer than 10 unreserved executions, and this account's TOTAL concurrency quota is 10. -1 means unreserved (the AWS default). Set to 1 once the account's Lambda concurrency quota is raised."
+  type        = number
+  default     = -1
+}
