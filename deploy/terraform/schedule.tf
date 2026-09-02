@@ -16,6 +16,13 @@ resource "aws_cloudwatch_event_rule" "scheduled_run" {
 resource "aws_cloudwatch_event_target" "demo_data_lambda" {
   rule = aws_cloudwatch_event_rule.scheduled_run.name
   arn  = aws_lambda_function.demo_data.arn
+
+  # Without this, EventBridge sends its own event envelope (source, detail-type, time, ...) as the
+  # payload. DemoData.Concerns would read that as "no toggles set" and default everything on, which
+  # is the behaviour we want - but by accident rather than by contract. Sending an explicit empty
+  # object says "all three concerns", deliberately, and makes the scheduled payload identical to
+  # the one documented for a manual invoke.
+  input = jsonencode({})
 }
 
 # EventBridge invokes targets directly via a resource-based Lambda permission (unlike a caller
