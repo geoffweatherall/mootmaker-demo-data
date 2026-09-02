@@ -1,10 +1,13 @@
 # mootmaker-demo-data
 
 Demo-data tools for the [mootmaker](https://github.com/geoffweatherall/mootmaker) project. Renamed
-from `mootmaker-tools` on 2026-08-29, when `database-reset` and `database-repair` split out into
-[mootmaker-admin-tools](https://github.com/geoffweatherall/mootmaker-admin-tools) by blast radius:
-this repo now holds only tooling that ships as part of the production demo, not tooling that can
-destroy data.
+from `mootmaker-tools` on 2026-08-29, when `database-reset` and `database-repair` split out by
+blast radius: this repo now holds only tooling that ships as part of the production demo, not
+tooling that can destroy data. (Those two tools briefly lived in their own repository,
+`mootmaker-admin-tools`, before moving into
+[mootmaker-api](https://github.com/geoffweatherall/mootmaker-api) itself on 2026-09-02 — see
+[mootmaker/designs/admin-tools-into-api.md](https://github.com/geoffweatherall/mootmaker/blob/main/designs/admin-tools-into-api.md).
+`mootmaker-admin-tools` no longer exists.)
 
 Like [mootmaker-api](https://github.com/geoffweatherall/mootmaker-api) and
 [mootmaker-webapp](https://github.com/geoffweatherall/mootmaker-webapp), each tool here is deployed
@@ -36,13 +39,12 @@ for details and any extra `run.sh` arguments.
 
 sample-data-generator invokes `database-reset` directly (Lambda-to-Lambda, via its own IAM role —
 see [sample-data-generator's README](sample-data-generator/README.md#how-it-is-deployed)) as the
-first step of every run. That tool now lives in
-[../mootmaker-admin-tools](https://github.com/geoffweatherall/mootmaker-admin-tools) — the coupling
-is unchanged by the split (it was always a deterministic function-name invocation, never a
-cross-project Terraform state read), but it now crosses a repository boundary rather than staying
-within one.
+first step of every run. That tool lives in
+[mootmaker-api](https://github.com/geoffweatherall/mootmaker-api) — the coupling is unchanged by
+where it lives (it was always a deterministic function-name invocation, never a cross-project
+Terraform state read), but it does cross a repository boundary.
 
-**`database-reset` (in `mootmaker-admin-tools`) must be deployed to an environment before
+**`database-reset` (in `mootmaker-api`) must be deployed to an environment before
 sample-data-generator is deployed or run against it.** `mootmaker-api`'s own acceptance tests have
 the same dependency (see the
 [mootmaker-api README](https://github.com/geoffweatherall/mootmaker-api#authentication-in-end-to-end-tests)).
@@ -54,10 +56,9 @@ environment has been seeded at least once by sample-data-generator (see
 **[deploy-all.sh](deploy-all.sh)/[undeploy-all.sh](undeploy-all.sh)**, at the root of this project,
 deploy or undeploy both tools against a single environment in one command
 (`./deploy-all.sh <environment>`) — sample-data-generator then sample-data-topup for deploy; the
-reverse for undeploy. Neither deploys `database-reset` itself — that is a separate repository now,
-deployed via its own `deploy-all.sh` in `mootmaker-admin-tools`, and must run first. Each script is
-just a loop over the individual tools' own `deploy.sh`/`undeploy.sh` (same environment argument
-passed straight through to each), so they carry the same behaviour and safety properties as running
-each tool's script by hand: `deploy-all.sh` runs real `terraform apply -auto-approve` calls, and
-`undeploy-all.sh` still prompts for interactive confirmation once per tool, since neither individual
-`undeploy.sh` script passes `-auto-approve`.
+reverse for undeploy. Neither deploys `database-reset` itself — that is `mootmaker-api`'s own
+`deploy.sh`, and must run first. Each script here is just a loop over the individual tools' own
+`deploy.sh`/`undeploy.sh` (same environment argument passed straight through to each), so they
+carry the same behaviour and safety properties as running each tool's script by hand: `deploy-all.sh`
+runs real `terraform apply -auto-approve` calls, and `undeploy-all.sh` still prompts for interactive
+confirmation once per tool, since neither individual `undeploy.sh` script passes `-auto-approve`.

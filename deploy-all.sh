@@ -4,10 +4,10 @@
 # sample-data-topup (best deployed after an environment has been seeded at least once).
 #
 # PREREQUISITE: sample-data-generator invokes database-reset Lambda-to-Lambda as the first step
-# of every run - that tool now lives in ../mootmaker-admin-tools (split out on 2026-08-29 by
-# blast radius; it can destroy data, this repo cannot). database-reset must already be deployed
-# to this environment, or this script's first deploy will fail when sample-data-generator tries
-# to invoke a Lambda that doesn't exist yet. See README.md.
+# of every run - that Lambda lives in ../mootmaker-api (part of its own deploy.sh; it can destroy
+# data, this repo cannot). database-reset must already be deployed to this environment, or this
+# script's first deploy will fail when sample-data-generator tries to invoke a Lambda that doesn't
+# exist yet. See README.md.
 #
 # NOTE: each tool's own deploy.sh runs `terraform apply -auto-approve`, creating real AWS
 # resources in whatever account/credentials are active. Run this deliberately, not from

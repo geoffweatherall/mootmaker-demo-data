@@ -1,8 +1,8 @@
 # mootmaker-demo-data
 
 Demo-data Lambdas, each deployed per environment. Renamed from `mootmaker-tools` on 2026-08-29,
-when `database-reset` and `database-repair` split into `../mootmaker-admin-tools` by blast radius —
-this repository now holds only tooling that ships as part of the production demo.
+when `database-reset` and `database-repair` split out by blast radius — this repository now holds
+only tooling that ships as part of the production demo, never anything that can destroy data.
 
 **Start by reading [README.md](README.md).** It lists the tools and the cross-repo dependency on
 `database-reset`. Keep it up to date when tools are added, removed, or change behaviour.
@@ -12,16 +12,19 @@ this repository now holds only tooling that ships as part of the production demo
 - **Both tools here are part of the product, not test-only tooling.** `sample-data-generator` and
   `sample-data-topup` seed the public demo — `sample-data-topup` runs weekly in production on an
   EventBridge schedule.
-- **`sample-data-generator` depends on `database-reset`, now in a different repository.** It invokes
-  it Lambda-to-Lambda as the first step of every run, via a deterministic function name — not by
-  reading `mootmaker-admin-tools`'s Terraform state. `database-reset` must be deployed to an
-  environment before `sample-data-generator` is deployed or run there.
-- **Neither tool here can destroy data.** That is the whole point of the split — see
-  `../mootmaker-admin-tools` for the tools that can.
+- **`sample-data-generator` depends on `database-reset`, which lives in `mootmaker-api`.** It
+  invokes it Lambda-to-Lambda as the first step of every run, via a deterministic function name —
+  not by reading `mootmaker-api`'s Terraform state. `database-reset` must be deployed to an
+  environment before `sample-data-generator` is deployed or run there. This dependency briefly
+  crossed a third repository, `mootmaker-admin-tools` (2026-08-29 to 2026-09-02), before
+  `database-reset`/`database-repair` moved into `mootmaker-api` itself — see
+  [`mootmaker/designs/admin-tools-into-api.md`](https://github.com/geoffweatherall/mootmaker/blob/main/designs/admin-tools-into-api.md).
+  `mootmaker-admin-tools` no longer exists.
+- **Neither tool here can destroy data.** That is the whole point of the original split — see
+  `../mootmaker-api` for `database-reset`/`database-repair`, the tools that can.
 - **Expect `../mootmaker-api` as a sibling checkout.** Deploying and invoking both read the target
-  environment's Terraform outputs through its `authenticate.sh`.
-- **`git log` on `database-reset`/`database-repair` will not find them here.** They moved to
-  `../mootmaker-admin-tools` with their history via `git-filter-repo`.
+  environment's Terraform outputs through its `authenticate.sh`, and `database-reset` itself is now
+  part of that same checkout.
 
 ---
 
