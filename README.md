@@ -1,64 +1,124 @@
 # mootmaker-demo-data
 
-Demo-data tools for the [mootmaker](https://github.com/geoffweatherall/mootmaker) project. Renamed
-from `mootmaker-tools` on 2026-08-29, when `database-reset` and `database-repair` split out by
-blast radius: this repo now holds only tooling that ships as part of the production demo, not
-tooling that can destroy data. (Those two tools briefly lived in their own repository,
-`mootmaker-admin-tools`, before moving into
-[mootmaker-api](https://github.com/geoffweatherall/mootmaker-api) itself on 2026-09-02 — see
-[mootmaker/designs/admin-tools-into-api.md](https://github.com/geoffweatherall/mootmaker/blob/main/designs/archive/admin-tools-into-api.md).
-`mootmaker-admin-tools` no longer exists.)
+Demo data for the [mootmaker](https://github.com/geoffweatherall/mootmaker) project: one Lambda
+that keeps an environment populated with realistic people, rooms and meetings.
 
-Like [mootmaker-api](https://github.com/geoffweatherall/mootmaker-api) and
-[mootmaker-webapp](https://github.com/geoffweatherall/mootmaker-webapp), each tool here is deployed
-— as its own AWS Lambda function, one per target environment — to help set up or maintain an
-already-deployed environment (see
-[`../mootmaker/docs/process/environments.md`](https://github.com/geoffweatherall/mootmaker/blob/main/docs/process/environments.md)
-for how environments work). sample-data-generator is invoked on demand; sample-data-topup also runs
-itself automatically on a schedule (see its own README).
+This is one of the project's **three deployable components**, alongside
+[mootmaker-api](https://github.com/geoffweatherall/mootmaker-api) and
+[mootmaker-webapp](https://github.com/geoffweatherall/mootmaker-webapp). Demo is a core part of
+MootMaker rather than test scaffolding — the public demo at www.mootmaker.com is what this fills —
+so it is always deployed to `production`, and optional for ephemeral environments.
 
-This checkout expects `mootmaker-api` to be a sibling directory — both deploying a tool and invoking
-it read the target environment's Terraform outputs (via `mootmaker-api`'s `authenticate.sh`), the
-same way `mootmaker-webapp` does.
+## This tool never deletes anything
 
-Each tool follows the same layout and scripts as `mootmaker-api`: an `impl/` Maven project with the
-Lambda handler code, a `deploy/terraform/` directory with its Terraform, and
-`deploy.sh`/`undeploy.sh`/`run.sh` scripts that all take the target environment as their first
-argument. `deploy.sh` builds the jar and creates/updates the Lambda; `run.sh` invokes the
-already-deployed Lambda and prints its result; `undeploy.sh` deletes it. See each tool's own README
-for details and any extra `run.sh` arguments.
+There is no reset path here, and no way to reach one. A run only ever *adds*: it creates the
+people, rooms and meetings that are missing, and leaves everything that already exists alone.
 
-## Tools
+That is a deliberate change. Its predecessor, `sample-data-generator`, reset the database as the
+first step of every run — behind a script called `run.sh`. Clearing an environment is now a
+separate, deliberate step: invoke `mootmaker-api`'s `database-reset` yourself first, then invoke
+this. Two commands, and neither is a surprise.
 
-| Tool | Purpose |
-|---|---|
-| [sample-data-generator](sample-data-generator/README.md) | Resets an environment (by invoking `database-reset` — see below) and populates it with realistic sample people, rooms, and meetings |
-| [sample-data-topup](sample-data-topup/README.md) | Runs weekly (EventBridge schedule, no manual trigger needed) and fills in any weekday in the next 6 weeks that has no meetings at all — unlike sample-data-generator, never resets or deletes anything, so it's safe to leave running unattended |
+## What a run does
 
-## The dependency that crosses a repository boundary
+Three independent concerns, each of which does nothing once its target is already met:
 
-sample-data-generator invokes `database-reset` directly (Lambda-to-Lambda, via its own IAM role —
-see [sample-data-generator's README](sample-data-generator/README.md#how-it-is-deployed)) as the
-first step of every run. That tool lives in
-[mootmaker-api](https://github.com/geoffweatherall/mootmaker-api) — the coupling is unchanged by
-where it lives (it was always a deterministic function-name invocation, never a cross-project
-Terraform state read), but it does cross a repository boundary.
+| Concern | Target | What makes it repeatable |
+|---|---|---|
+| People | `TARGET_PEOPLE` (default 40) | Creates the shortfall only |
+| Rooms | `TARGET_ROOMS` (default 10) | Creates the shortfall only, never reusing an existing room's name |
+| Meetings | every weekday from `DAYS_IN_PAST` (default 7) behind today to `WEEKS_AHEAD` (default 6) ahead | Skips any day that already has a meeting |
 
-**`database-reset` (in `mootmaker-api`) must be deployed to an environment before
-sample-data-generator is deployed or run against it.** `mootmaker-api`'s own acceptance tests have
-the same dependency (see the
-[mootmaker-api README](https://github.com/geoffweatherall/mootmaker-api#authentication-in-end-to-end-tests)).
+Seeding a fresh environment and topping up `production` are therefore the **same operation** — on a
+new environment every day in the window is empty, so the run fills all of them; on a populated one
+it fills whichever single day has just entered the window. There is no mode to choose and none to
+get wrong.
 
-sample-data-topup works against whatever rooms/people already exist, so it's best deployed after an
-environment has been seeded at least once by sample-data-generator (see
-[sample-data-topup's README](sample-data-topup/README.md#prerequisites)).
+The people target counts **all** people, not just generated ones: `Person` exposes no Cognito
+linkage through the GraphQL API, so this tool genuinely cannot tell a demo person from a real
+signed-up one. In an environment where real sign-ups have passed the target, no demo people are
+created — there are already enough people to book meetings with.
 
-**[deploy-all.sh](deploy-all.sh)/[undeploy-all.sh](undeploy-all.sh)**, at the root of this project,
-deploy or undeploy both tools against a single environment in one command
-(`./deploy-all.sh <environment>`) — sample-data-generator then sample-data-topup for deploy; the
-reverse for undeploy. Neither deploys `database-reset` itself — that is `mootmaker-api`'s own
-`deploy.sh`, and must run first. Each script here is just a loop over the individual tools' own
-`deploy.sh`/`undeploy.sh` (same environment argument passed straight through to each), so they
-carry the same behaviour and safety properties as running each tool's script by hand: `deploy-all.sh`
-runs real `terraform apply -auto-approve` calls, and `undeploy-all.sh` still prompts for interactive
-confirmation once per tool, since neither individual `undeploy.sh` script passes `-auto-approve`.
+## Running it
+
+```bash
+# Everything (what the schedule does)
+aws lambda invoke --function-name <environment>-mootmaker-demo-data \
+  --cli-read-timeout 900 --payload '{}' /dev/stdout
+
+# Just the meetings, leaving people and rooms alone
+aws lambda invoke --function-name <environment>-mootmaker-demo-data \
+  --cli-read-timeout 900 --payload '{"people": false, "rooms": false}' /dev/stdout
+```
+
+**`--cli-read-timeout 900` is not optional.** The function's own timeout is the AWS maximum of 900
+seconds, and the AWS CLI defaults to a 60-second read timeout — without this, a legitimately long
+run (a full seed of a fresh environment) is reported to you as a failure while the Lambda carries
+on and completes regardless.
+
+Every concern defaults to enabled, so the scheduled invocation's empty payload runs all three.
+Magnitudes — how many people and rooms, how wide the window — are Terraform variables rather than
+payload fields, so a mistyped invocation can switch a concern off but can never ask for 4,000
+people.
+
+Only one run happens at a time: the function has a reserved concurrency of 1, so a second
+overlapping invocation is throttled rather than racing the first.
+
+### To clear and repopulate
+
+```bash
+aws lambda invoke --function-name <environment>-mootmaker-database-reset \
+  --cli-read-timeout 900 --payload '{}' /dev/stdout    # mootmaker-api's tool, not this one
+aws lambda invoke --function-name <environment>-mootmaker-demo-data \
+  --cli-read-timeout 900 --payload '{}' /dev/stdout
+```
+
+## Build, test, deploy
+
+```bash
+mvn -f impl/pom.xml clean package     # unit tests
+./deploy.sh <environment>             # build the jar, create/update the Lambda
+./verify.sh <environment>             # acceptance tests (destructive - never production)
+./undeploy.sh <environment>           # remove it
+```
+
+`deploy.sh` needs **nothing** from `mootmaker-api`'s Terraform state — only the environment name.
+Everything else (GraphQL URL, Cognito token endpoint, client id/secret, scopes) is read at runtime
+from SSM Parameter Store, at paths derived from the environment name.
+
+**`mootmaker-api` must be deployed to an environment before this is**, since its Terraform is what
+creates those parameters. Deploy this first and the Lambda comes up fine, then fails on its first
+invocation with a missing-parameter error.
+
+## Authentication
+
+Machine-to-machine, via the OAuth2 `client_credentials` flow: this component has **its own** Cognito
+app client (`<environment>-mootmaker-demo-data`), defined in `mootmaker-api`'s `cognito.tf`, whose
+id and secret it reads from SSM at runtime. It never acts as a user — it cannot, since the webapp's
+Cognito client permits only SRP auth — and it holds no credential in an environment variable or in
+this project's Terraform state.
+
+It used to borrow the *acceptance tests'* client, with the secret passed in as a plaintext Lambda
+environment variable. That shared one credential between two unrelated consumers and put it
+somewhere any holder of `lambda:GetFunctionConfiguration` could read.
+
+The token is fetched **once per run**, never per request: Cognito bills M2M token requests with no
+free tier at all, so a token per GraphQL call would cost hundreds of times more on a full seed.
+
+## Scheduling
+
+An EventBridge rule invokes the Lambda daily at 06:00 UTC. It is **enabled only in `production`** by
+default — an ephemeral environment that outlives its work should not also sit there invoking a
+Lambda every day against an API that may be half-torn-down. Set `schedule_enabled` explicitly to
+exercise it elsewhere.
+
+## Everything it writes goes through the API
+
+This component holds no DynamoDB code at all. It creates data by calling `createPerson`,
+`createRoom` and `createMeeting` exactly as the webapp would, which makes generated demo data proof
+that the API's own validation accepts it. Writing directly to DynamoDB would be faster and would let
+it construct states the API rejects — which is exactly why it doesn't.
+
+## Testing
+
+See [testing-strategy.md](testing-strategy.md).
