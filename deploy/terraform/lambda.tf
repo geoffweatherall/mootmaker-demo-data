@@ -19,17 +19,21 @@ resource "aws_lambda_function" "demo_data" {
   # defaults to a 60-second read timeout - see the README's documented `--cli-read-timeout 900`.
   timeout = 900
 
-  # Two concurrent runs could both observe 30 rooms and both create 10. The intended guard is
-  # structural - reserve concurrency 1, so Lambda throttles a second overlapping invocation
-  # outright and visibly (a 429 for a synchronous caller, EventBridge's own retry for the
-  # scheduled one) rather than us hand-rolling a lock.
+  # Off by default, and that is an accepted risk rather than an outstanding problem (Geoff,
+  # 2026-09-02).
   #
-  # It is OFF by default because this account cannot express it: its total Lambda concurrency
-  # quota is 10 (not the usual 1000), and AWS refuses any reservation that would leave fewer than
-  # 10 unreserved - so every possible value is rejected here, not just this one. Left as a variable
-  # rather than deleted: the moment that quota is raised, setting it to 1 is the whole fix. Until
-  # then the exposure is one over-created batch of rooms or people if a manual run overlaps the
-  # daily schedule, which is untidy rather than harmful and self-corrects on the next run.
+  # The theoretical exposure: two runs overlapping could both observe 30 rooms and both create 10.
+  # The guard would be structural - reserve concurrency 1, so Lambda throttles the second
+  # invocation outright and visibly. This account cannot express that: its total Lambda concurrency
+  # quota is 10 (not the usual 1000) and AWS refuses any reservation leaving fewer than 10
+  # unreserved, so every value is rejected, not just this one.
+  #
+  # Why that is fine here: overlap needs a manual invoke to land inside the few seconds a scheduled
+  # run is active, once a day. If it ever happened the result is a few extra rooms or people in a
+  # demo environment - not corruption, not data loss - and the next run is a no-op again because
+  # every concern is defined by its target rather than by what it last did. The variable stays so
+  # that setting it to 1 is the whole fix if the quota is ever raised, but nothing is waiting on
+  # that.
   reserved_concurrent_executions = var.reserved_concurrency
 
   # No credentials here, deliberately: the client id/secret and endpoints are read from SSM at
