@@ -1,30 +1,37 @@
 # mootmaker-demo-data
 
-Demo-data Lambdas, each deployed per environment. Renamed from `mootmaker-tools` on 2026-08-29,
-when `database-reset` and `database-repair` split out by blast radius — this repository now holds
-only tooling that ships as part of the production demo, never anything that can destroy data.
+One Lambda, deployed per environment, that keeps an environment populated with demo people, rooms
+and meetings. One of the project's three deployable components, alongside `mootmaker-api` and
+`mootmaker-webapp`.
 
-**Start by reading [README.md](README.md).** It lists the tools and the cross-repo dependency on
-`database-reset`. Keep it up to date when tools are added, removed, or change behaviour.
+**Start by reading [README.md](README.md).** Keep it up to date when behaviour changes.
 
 ## Working here
 
-- **Both tools here are part of the product, not test-only tooling.** `sample-data-generator` and
-  `sample-data-topup` seed the public demo — `sample-data-topup` runs weekly in production on an
-  EventBridge schedule.
-- **`sample-data-generator` depends on `database-reset`, which lives in `mootmaker-api`.** It
-  invokes it Lambda-to-Lambda as the first step of every run, via a deterministic function name —
-  not by reading `mootmaker-api`'s Terraform state. `database-reset` must be deployed to an
-  environment before `sample-data-generator` is deployed or run there. This dependency briefly
-  crossed a third repository, `mootmaker-admin-tools` (2026-08-29 to 2026-09-02), before
-  `database-reset`/`database-repair` moved into `mootmaker-api` itself — see
-  [`mootmaker/designs/admin-tools-into-api.md`](https://github.com/geoffweatherall/mootmaker/blob/main/designs/archive/admin-tools-into-api.md).
-  `mootmaker-admin-tools` no longer exists.
-- **Neither tool here can destroy data.** That is the whole point of the original split — see
-  `../mootmaker-api` for `database-reset`/`database-repair`, the tools that can.
-- **Expect `../mootmaker-api` as a sibling checkout.** Deploying and invoking both read the target
-  environment's Terraform outputs through its `authenticate.sh`, and `database-reset` itself is now
-  part of that same checkout.
+- **This is part of the product, not test-only tooling.** It fills the public demo at
+  www.mootmaker.com, and runs there daily on an EventBridge schedule. Always deployed to
+  `production`; opt-in (`--with-demo-data`) for ephemeral environments.
+- **This component never deletes anything, and must not learn how.** There is no reset path and no
+  way to reach one. Its predecessor `sample-data-generator` reset the database as the first step of
+  every run, behind a script called `run.sh`; removing that is the single most important property of
+  the current design. A request to "just add a reset flag" should be read against
+  [`mootmaker/designs/demo-data-component.md`](https://github.com/geoffweatherall/mootmaker/blob/main/designs/demo-data-component.md)
+  before it is acted on. Clearing an environment is a separate, deliberate invocation of
+  `mootmaker-api`'s `database-reset`.
+- **Every write goes through the GraphQL API**, never DynamoDB directly. That is what makes
+  generated data proof the API's own validation accepts it, and it is why there is no shared storage
+  model between this repo and `mootmaker-api`.
+- **All three concerns must stay idempotent.** People and rooms create `max(0, target - current)`;
+  meetings skip any day that already has one. The acceptance suite's "a second run changes nothing"
+  test is what guards this.
+- **`deploy.sh` reads nothing from `mootmaker-api`'s Terraform state** - only the environment name.
+  Credentials and endpoints come from SSM Parameter Store at runtime. Keep it that way; the
+  deploy-time state hand-off it replaced is what coupled the two repos' releases.
+- **`mootmaker-api` must be deployed to an environment first**, since its Terraform creates the SSM
+  parameters this component reads.
+- **The Lambda's timeout is the AWS maximum (900s) deliberately.** Any caller needs a matching
+  client-side timeout - `--cli-read-timeout 900` for the AWS CLI - or a long run is reported as a
+  failure while the Lambda completes regardless.
 
 ---
 
