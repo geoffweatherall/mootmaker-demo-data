@@ -48,6 +48,22 @@
       <version>2.19.0</version>
       <scope>test</scope>
     </dependency>
+    <!-- The default credentials chain's ProfileCredentialsProvider needs both of these on the
+         classpath to resolve AWS SSO profile credentials (the same kind `aws sts
+         get-caller-identity` already resolves via the CLI) - without them, DemoDataLambda's
+         LambdaClient fails with "the 'sso'/'ssooidc' service module must be on the class path"
+         for anyone running these tests via an SSO-based profile rather than static access keys.
+         Same pair, for the same reason, as mootmaker-api/verify/pom.xml. -->
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>sso</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>ssooidc</artifactId>
+      <scope>test</scope>
+    </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>
