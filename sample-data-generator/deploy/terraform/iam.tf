@@ -19,10 +19,9 @@ resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
 }
 
 # The only other AWS permission this function needs: it invokes database-reset (in
-# ../mootmaker-admin-tools, split out from this repo on 2026-08-29 by blast radius) as the first
-# step of every run (see DatabaseResetInvoker), rather than through GraphQL. Everything
-# else it does is an outbound HTTPS call (to the Cognito token endpoint and the AppSync GraphQL
-# endpoint) - it never touches DynamoDB or any other AWS service directly.
+# ../mootmaker-api) as the first step of every run (see DatabaseResetInvoker), rather than through
+# GraphQL. Everything else it does is an outbound HTTPS call (to the Cognito token endpoint and
+# the AppSync GraphQL endpoint) - it never touches DynamoDB or any other AWS service directly.
 data "aws_iam_policy_document" "invoke_database_reset" {
   statement {
     actions   = ["lambda:InvokeFunction"]
