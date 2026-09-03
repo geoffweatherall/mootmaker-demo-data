@@ -83,6 +83,8 @@ aws lambda invoke --function-name <environment>-mootmaker-demo-data \
 ```bash
 mvn -f impl/pom.xml clean package     # unit tests
 ./deploy.sh <environment>             # build the jar, create/update the Lambda
+./deploy.sh <environment> --skip-build  # deploy the existing impl/target/demo-data.jar unchanged
+                                      # (used by the release pipeline to promote one build)
 ./verify.sh <environment>             # acceptance tests (destructive - never production)
 ./undeploy.sh <environment>           # remove it
 ```
