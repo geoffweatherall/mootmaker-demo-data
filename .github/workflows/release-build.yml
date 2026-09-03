@@ -1,0 +1,136 @@
+# Reusable release build for mootmaker-demo-data. See mootmaker/designs/ci-cd-pipeline.md
+# Decision 7 and Rollout step 6.
+#
+# Builds the Lambda jar ONCE, proves it against a fresh ephemeral AWS environment, and uploads it
+# as an artifact. release.yml in mootmaker-release then promotes that exact artifact to test and
+# then production - it is never rebuilt per environment, which is what Decision 8 requires and
+# what deploy.sh's --skip-build flag exists to make possible.
+#
+# UNLIKE the other two components, this one needs mootmaker-api present and deployed:
+#   - verify.sh resolves "../mootmaker-api" and fails outright if it is not there, because the
+#     acceptance suite resets the environment through mootmaker-api's database-reset Lambda before
+#     seeding it;
+#   - this component reads its GraphQL endpoint and Cognito M2M credentials from SSM parameters
+#     that mootmaker-api's Terraform creates, so deploying it alone yields a Lambda that deploys
+#     cleanly and then fails on first invocation with a missing-parameter error.
+#
+# Both checkouts therefore set an explicit `path`, so they land as SIBLINGS under the workspace
+# root - the layout every mootmaker script expects. Checking mootmaker-api out into a subdirectory
+# of this repo would put it at ../../mootmaker-api and break verify.sh's lookup.
+#
+# OIDC NOTE: the deploy role's trust policy only accepts this workflow at refs/tags/v* (see
+# mootmaker-bootstrap-aws-accounts/workload-account/github-actions-deploy-role.yaml). A run on a
+# branch authenticates to GitHub fine and then fails at AWS. To exercise this standalone, dispatch
+# it at a tag: gh workflow run release-build.yml --ref v0.0.1-rc1
+name: Release build
+
+on:
+  # Called by mootmaker-release/release.yml as part of a real release.
+  workflow_call:
+    inputs:
+      version:
+        description: Version being released, without the leading v (e.g. 1.4.0).
+        required: true
+        type: string
+    outputs:
+      artifact-name:
+        description: Name of the uploaded jar artifact, for the caller to download and promote.
+        value: ${{ jobs.build.outputs.artifact-name }}
+  # Standalone proving run. Dispatch at a v* tag, not a branch - see the OIDC note above.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to stamp this build with, without the leading v.
+        required: true
+        type: string
+
+permissions:
+  # Mint the OIDC token that configure-aws-credentials exchanges for the deploy role.
+  id-token: write
+  contents: read
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    # The acceptance stage stands up real infrastructure; a hung step must not bill indefinitely.
+    # Longer than the other components' because two are deployed here, and this Lambda's own
+    # timeout is the AWS maximum of 900s.
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: mootmaker-demo-data
+    outputs:
+      artifact-name: ${{ steps.artifact.outputs.name }}
+      environment: ${{ steps.env.outputs.name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: mootmaker-demo-data
+
+      - uses: actions/checkout@v4
+        with:
+          repository: geoffweatherall/mootmaker-api
+          path: mootmaker-api
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      # `package` runs the test phase first, so this is build + unit tests in one step. This is
+      # the ONLY compile of this component in the whole release.
+      - name: Build and unit test
+        run: mvn -B -ntp -f impl/pom.xml clean package
+
+      # Matches create-ephemeral-env.sh's <kind>-<YYMMDD>-<rand4> convention so that
+      # cleanup-stale-envs.sh can still find and sweep this environment if the run dies before
+      # teardown. Its regex is ^[a-z][a-z0-9-]{0,7}-[0-9]{6}-[a-z0-9]{4}$, and "rel-demo" uses the
+      # full 8-character kind budget.
+      - name: Generate ephemeral environment name
+        id: env
+        run: echo "name=rel-demo-$(date -u +%y%m%d)-$(openssl rand -hex 2)" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::431071856068:role/mootmaker-release-github-actions-deploy
+          aws-region: us-east-1
+
+      # Built fresh from main rather than promoted: mootmaker-api is a dependency of the
+      # environment under test here, not the artifact being released by this workflow.
+      - name: Deploy mootmaker-api into the ephemeral environment
+        working-directory: mootmaker-api
+        run: ./deploy.sh "${{ steps.env.outputs.name }}"
+
+      - name: Deploy to the ephemeral environment
+        run: ./deploy.sh "${{ steps.env.outputs.name }}" --skip-build
+
+      - name: Acceptance tests
+        run: ./verify.sh "${{ steps.env.outputs.name }}"
+
+      # if: always() is load-bearing, not defensive. Without it a failed acceptance run - or a
+      # cancelled workflow - leaves live infrastructure billing until someone notices. --yes is
+      # required because undeploy.sh otherwise waits on an interactive confirmation there is no
+      # stdin to answer. Teardown runs in reverse dependency order, and mootmaker-api's step runs
+      # even if this component's fails, so a partial failure cannot strand the expensive half.
+      - name: Tear down this component
+        if: always()
+        run: ./undeploy.sh "${{ steps.env.outputs.name }}" --yes
+
+      - name: Tear down mootmaker-api
+        if: always()
+        working-directory: mootmaker-api
+        run: ./undeploy.sh "${{ steps.env.outputs.name }}" --yes
+
+      - name: Name the artifact
+        id: artifact
+        run: echo "name=mootmaker-demo-data-${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: mootmaker-demo-data/impl/target/demo-data.jar
+          if-no-files-found: error
+          retention-days: 30
