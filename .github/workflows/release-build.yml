@@ -92,6 +92,13 @@ jobs:
         id: env
         run: echo "name=rel-demo-$(date -u +%y%m%d)-$(openssl rand -hex 2)" >> "$GITHUB_OUTPUT"
 
+      # deploy.sh and undeploy.sh both shell out to terraform; the runner does not have it
+      # preinstalled. Without this, every deploy and teardown fails with "terraform: command not
+      # found" - and a failed teardown is how an ephemeral environment gets stranded.
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
