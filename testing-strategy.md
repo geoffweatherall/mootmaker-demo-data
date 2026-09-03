@@ -52,7 +52,7 @@ consequence is that this is the slowest suite to stand up, so **point `verify.sh
 ephemeral environment** rather than creating one per run:
 
 ```bash
-../mootmaker-test-infra/create-ephemeral-env.sh claude --with-demo-data
+../mootmaker-ephemeral-envs/create-ephemeral-env.sh claude --with-demo-data
 ./verify.sh <the name it printed>
 ```
 
