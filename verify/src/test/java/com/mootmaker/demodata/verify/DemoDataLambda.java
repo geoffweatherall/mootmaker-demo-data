@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
+import software.amazon.awssdk.http.apache5.Apache5HttpClient;
 import software.amazon.awssdk.services.lambda.LambdaClient;
 import software.amazon.awssdk.services.lambda.model.InvocationType;
 import software.amazon.awssdk.services.lambda.model.InvokeRequest;
@@ -39,6 +40,20 @@ final class DemoDataLambda {
                         .apiCallTimeout(LAMBDA_CEILING)
                         .apiCallAttemptTimeout(LAMBDA_CEILING)
                         .build())
+                // apiCallTimeout and apiCallAttemptTimeout above do NOT reach the underlying HTTP
+                // client's socket read timeout, which defaults to 30 seconds. Without this, a seed
+                // that takes longer than 30s - a cold start against a freshly created environment
+                // takes about 35 - has its socket torn down, the SDK silently retries, and the
+                // retry finds the data the FIRST invocation already created and correctly reports
+                // "nothing to do". The caller then sees zeros and concludes seeding failed.
+                //
+                // That is not hypothetical: it is exactly how this suite failed on its first CI
+                // run, where two overlapping invocations are visible in the Lambda's own logs 30
+                // seconds apart. It passes locally only because a reused environment already holds
+                // data, so the seed returns well inside 30 seconds.
+                .httpClientBuilder(Apache5HttpClient.builder()
+                        .socketTimeout(LAMBDA_CEILING)
+                        .connectionTimeout(Duration.ofSeconds(30)))
                 .build();
     }
 
