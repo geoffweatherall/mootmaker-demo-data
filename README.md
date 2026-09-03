@@ -86,7 +86,8 @@ mvn -f impl/pom.xml clean package     # unit tests
 ./deploy.sh <environment> --skip-build  # deploy the existing impl/target/demo-data.jar unchanged
                                       # (used by the release pipeline to promote one build)
 ./verify.sh <environment>             # acceptance tests (destructive - never production)
-./undeploy.sh <environment>           # remove it
+./undeploy.sh <environment>           # remove it (prompts for confirmation)
+./undeploy.sh <environment> --yes     # no prompt, for automation; refuses production and test
 ```
 
 `deploy.sh` needs **nothing** from `mootmaker-api`'s Terraform state — only the environment name.
