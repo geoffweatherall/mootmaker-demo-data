@@ -67,3 +67,13 @@ variable "reserved_concurrency" {
   type        = number
   default     = -1
 }
+
+variable "log_retention_days" {
+  type        = number
+  default     = 120
+  description = <<-EOT
+    How long this environment's demo-data Lambda logs are kept (Decision 11). 120 days
+    deliberately, not forever: permanence was never the goal, staying inside scale-to-zero was.
+    Without this, Lambda auto-creates the group with never-expire retention.
+  EOT
+}
