@@ -12,7 +12,13 @@
 # so the first apply introducing this resource must be preceded by `terraform import` - CloudWatch
 # rejects creating a log group whose name is taken. See deploy/import-log-groups.sh.
 resource "aws_cloudwatch_log_group" "demo_data" {
-  name              = "/aws/lambda/${aws_lambda_function.demo_data.function_name}"
+  # Built from resource_prefix rather than read off the function, and that is load-bearing.
+  # Referencing aws_lambda_function.demo_data.function_name would make this group depend on the
+  # FUNCTION, so Terraform creates the function first - and any invocation of it makes Lambda
+  # auto-create the group, so Terraform's own create then fails with ResourceAlreadyExistsException
+  # on a supposedly empty environment. Deriving the name independently, plus the depends_on on the
+  # function itself, inverts that ordering.
+  name              = "/aws/lambda/${local.resource_prefix}"
   retention_in_days = var.log_retention_days
 
   tags = {
