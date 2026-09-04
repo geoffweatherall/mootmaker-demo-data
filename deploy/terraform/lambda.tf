@@ -48,4 +48,8 @@ resource "aws_lambda_function" "demo_data" {
       WEEKS_AHEAD   = tostring(var.weeks_ahead)
     }
   }
+
+  # The log group must exist BEFORE this function is invoked, or Lambda auto-creates its
+  # own and collides with Terraform's. See logs.tf.
+  depends_on = [aws_cloudwatch_log_group.demo_data]
 }
