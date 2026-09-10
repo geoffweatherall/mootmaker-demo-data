@@ -14,7 +14,16 @@ name: PR checks
 
 on:
   pull_request:
-    branches: [main]
+    # No `branches:` filter, deliberately. That filter matches the PR's BASE, so restricting it to
+    # main silently exempts every stacked pull request - a PR based on another PR is not based on
+    # main, so no run fires at all. mootmaker-webapp had five of seven open PRs in exactly that
+    # state before this was fixed there.
+    #
+    # 'edited' is not optional either. The default activity types are opened/synchronize/reopened;
+    # retargeting a PR's base is none of those, it is 'edited'. When a parent merges and GitHub
+    # retargets the child, no run fires - and if main's protection requires a context, that PR waits
+    # forever on a status that can never arrive, with no push left to trigger it.
+    types: [opened, synchronize, reopened, edited]
   # Lets the gate be re-run without pushing an empty commit.
   workflow_dispatch:
 
