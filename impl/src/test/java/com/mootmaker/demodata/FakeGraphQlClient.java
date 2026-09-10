@@ -91,8 +91,17 @@ final class FakeGraphQlClient extends GraphQlClient {
         if (query.contains("createPerson")) {
             final String name = nestedString(variables, "person", "name");
             createdPeopleNames.add(name);
-            return OBJECT_MAPPER.createObjectNode().set("createPerson",
-                    OBJECT_MAPPER.createObjectNode().put("id", UUID.randomUUID().toString()).put("name", name));
+            // { person { ... }, errors }, the shape CreatePersonResult actually has. This fake used
+            // to return id and name directly on the result, which the schema has never allowed - so
+            // every unit test passed against a shape the API would reject. A fake confirms your
+            // model of a dependency, not the dependency.
+            final var person = OBJECT_MAPPER.createObjectNode()
+                    .put("id", UUID.randomUUID().toString())
+                    .put("name", name);
+            final var payload = OBJECT_MAPPER.createObjectNode();
+            payload.set("person", person);
+            payload.set("errors", OBJECT_MAPPER.createArrayNode());
+            return OBJECT_MAPPER.createObjectNode().set("createPerson", payload);
         }
         if (query.contains("createRoom")) {
             final String name = nestedString(variables, "room", "name");

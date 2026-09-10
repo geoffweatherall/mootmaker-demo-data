@@ -158,7 +158,12 @@ final class DemoData {
         }
         System.out.println("People: " + existing + " exist, creating " + toCreate + " to reach " + target + "...");
 
-        final String mutation = "mutation CreatePerson($person: PersonInput!) { createPerson(person: $person) { id name } }";
+        // { person { ... } errors }, matching createRoom below. CreatePersonResult has never had id
+        // or name directly on it - the previous selection was simply invalid, and nothing caught it
+        // because this path had no acceptance coverage and the fake client mirrored the same wrong
+        // shape back.
+        final String mutation = "mutation CreatePerson($person: PersonInput!) { "
+                + "createPerson(person: $person) { person { id name } errors } }";
         // Random isn't safe for concurrent use, so the names are drawn up front, sequentially;
         // only the network calls below run in parallel. The names are distinct by construction,
         // which is what lets the loop below index by position rather than by name.
@@ -166,7 +171,8 @@ final class DemoData {
 
         runInParallel(IntStream.range(0, toCreate).boxed().toList(), i -> {
             final JsonNode result = client.execute(mutation, Map.of("person", Map.of("name", names.get(i))));
-            System.out.println("  " + result.get("createPerson").get("name").asText());
+            failIfErrors(result.get("createPerson"), "createPerson(" + names.get(i) + ")");
+            System.out.println("  " + result.get("createPerson").get("person").get("name").asText());
         });
         return toCreate;
     }
