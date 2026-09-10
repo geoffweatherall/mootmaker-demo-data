@@ -41,6 +41,16 @@ final class DemoData {
      */
     private static final int MAX_CONCURRENT_REQUESTS = 8;
 
+    /**
+     * The API's own per-call cap on {@code createMeetings}, mirrored rather than imported - this tool
+     * depends on the published schema, not on mootmaker-api's Java.
+     *
+     * <p>Ninety-nine because the day item and one id-to-date pointer per new meeting are written in a
+     * single DynamoDB transaction, and that caps at 100 items. If it ever changes, the schema's own
+     * documentation on {@code createMeetings} is the source of truth.
+     */
+    private static final int MAX_MEETINGS_PER_BULK_CREATE = 99;
+
     private DemoData() {
     }
 
@@ -148,7 +158,12 @@ final class DemoData {
         }
         System.out.println("People: " + existing + " exist, creating " + toCreate + " to reach " + target + "...");
 
-        final String mutation = "mutation CreatePerson($person: PersonInput!) { createPerson(person: $person) { id name } }";
+        // { person { ... } errors }, matching createRoom below. CreatePersonResult has never had id
+        // or name directly on it - the previous selection was simply invalid, and nothing caught it
+        // because this path had no acceptance coverage and the fake client mirrored the same wrong
+        // shape back.
+        final String mutation = "mutation CreatePerson($person: PersonInput!) { "
+                + "createPerson(person: $person) { person { id name } errors } }";
         // Random isn't safe for concurrent use, so the names are drawn up front, sequentially;
         // only the network calls below run in parallel. The names are distinct by construction,
         // which is what lets the loop below index by position rather than by name.
@@ -156,7 +171,8 @@ final class DemoData {
 
         runInParallel(IntStream.range(0, toCreate).boxed().toList(), i -> {
             final JsonNode result = client.execute(mutation, Map.of("person", Map.of("name", names.get(i))));
-            System.out.println("  " + result.get("createPerson").get("name").asText());
+            failIfErrors(result.get("createPerson"), "createPerson(" + names.get(i) + ")");
+            System.out.println("  " + result.get("createPerson").get("person").get("name").asText());
         });
         return toCreate;
     }
@@ -238,7 +254,8 @@ final class DemoData {
      * today. A past day is topped up at most once: once it has meetings, the same "this day has no
      * meetings" guard leaves it alone forever.
      */
-    private static Summary topUpMeetings(final GraphQlClient client, final Targets targets, final Random random) {
+    /** Package-private (rather than private) so tests can exercise it directly, like weekdaysBetween. */
+    static Summary topUpMeetings(final GraphQlClient client, final Targets targets, final Random random) {
         final LocalDate today = LocalDate.now();
         final LocalDate windowStart = today.minusDays(targets.daysInPast());
         final LocalDate windowEnd = today.plusDays((long) targets.weeksAhead() * 7);
@@ -283,8 +300,16 @@ final class DemoData {
 
         final List<RoomInfo> roomInfos = rooms.stream().map(room -> new RoomInfo(room.id(), room.capacity())).toList();
         final List<GeneratedMeeting> meetings = MeetingScheduler.generate(roomInfos, personIds, targetDays, random);
-        System.out.println("Creating " + meetings.size() + " meeting(s)...");
-        runInParallel(meetings, meeting -> createMeeting(client, meeting));
+        // Grouped by day, one bulk call per day, rather than one call per meeting. With a whole
+        // calendar day stored as ONE DynamoDB item guarded by optimistic locking, concurrent creates
+        // that land on the same date contend for the same item version - so the old
+        // runInParallel(meetings, ...) had every meeting on a given day fighting the others for it.
+        // createMeetings writes the whole day in a single item write instead. Days remain parallel:
+        // different dates are different items and cannot contend.
+        final Map<LocalDate, List<GeneratedMeeting>> byDay = meetings.stream().collect(Collectors.groupingBy(
+                meeting -> meeting.startTime().toLocalDate(), TreeMap::new, Collectors.toList()));
+        System.out.println("Creating " + meetings.size() + " meeting(s) across " + byDay.size() + " day(s)...");
+        runInParallel(List.copyOf(byDay.entrySet()), day -> createMeetingsForDay(client, day.getKey(), day.getValue()));
 
         System.out.println("Done: " + targetDays.size() + " weekday(s) topped up, " + meetings.size() + " meeting(s) created.");
         return new Summary(0, 0, targetDays.size(), meetings.size());
@@ -312,44 +337,82 @@ final class DemoData {
     }
 
     private static List<RoomDetail> fetchRooms(final GraphQlClient client) {
-        final JsonNode result = client.execute("query { rooms { id name capacity } }");
+        final JsonNode result = client.execute("query { workspace { rooms { id name capacity } } }");
         final List<RoomDetail> rooms = new ArrayList<>();
-        for (final JsonNode room : result.get("rooms")) {
+        for (final JsonNode room : result.get("workspace").get("rooms")) {
             rooms.add(new RoomDetail(room.get("id").asText(), room.get("name").asText(), room.get("capacity").asInt()));
         }
         return rooms;
     }
 
     private static List<String> fetchPersonIds(final GraphQlClient client) {
-        final JsonNode result = client.execute("query { people { id } }");
+        final JsonNode result = client.execute("query { workspace { people { id } } }");
         final List<String> personIds = new ArrayList<>();
-        for (final JsonNode person : result.get("people")) {
+        for (final JsonNode person : result.get("workspace").get("people")) {
             personIds.add(person.get("id").asText());
         }
         return personIds;
     }
 
-    /** The calendar dates (within the window) that already have at least one meeting, in any room. */
+    /**
+     * The calendar dates (within the window) that already have at least one meeting, in any room.
+     *
+     * <p>Asks for the days by date and reads back which of them are non-empty, rather than fetching
+     * every meeting in a time range and deriving the dates from their start times. The day-keyed
+     * schema answers this directly: a date IS the key, so `id` is selected purely as the cheapest
+     * non-empty marker and no meeting field is actually used.
+     */
     private static Set<LocalDate> fetchDatesWithMeetings(final GraphQlClient client, final LocalDate windowStart,
             final LocalDate windowEnd) {
-        final String query = "query FilterMeetings($filter: MeetingsFilter) { meetings(filter: $filter) { startTime } }";
-        final Map<String, Object> filter = Map.of(
-                "fromStartTime", windowStart.atStartOfDay().format(MEETING_TIME_FORMAT),
-                "toEndTime", windowEnd.atStartOfDay().format(MEETING_TIME_FORMAT));
-
-        final JsonNode result = client.execute(query, Map.of("filter", filter));
-        final Set<LocalDate> dates = new HashSet<>();
-        for (final JsonNode meeting : result.get("meetings")) {
-            dates.add(LocalDateTime.parse(meeting.get("startTime").asText()).toLocalDate());
+        final String query = "query DatesWithMeetings($dates: [String!]) { "
+                + "workspace(dates: $dates) { days { date meetings { id } } } }";
+        final List<String> dates = weekdaysBetween(windowStart, windowEnd).stream().map(LocalDate::toString).toList();
+        if (dates.isEmpty()) {
+            return Set.of();
         }
-        return dates;
+
+        final JsonNode result = client.execute(query, Map.of("dates", dates));
+        final Set<LocalDate> withMeetings = new HashSet<>();
+        for (final JsonNode day : result.get("workspace").get("days")) {
+            if (!day.get("meetings").isEmpty()) {
+                withMeetings.add(LocalDate.parse(day.get("date").asText()));
+            }
+        }
+        return withMeetings;
     }
 
     // --- Writes ---------------------------------------------------------------------------
 
-    private static void createMeeting(final GraphQlClient client, final GeneratedMeeting meeting) {
-        final String mutation = "mutation CreateMeeting($meeting: MeetingInput!) { "
-                + "createMeeting(meeting: $meeting) { meeting { id } errors } }";
+    /**
+     * Creates one day's meetings, splitting into as many calls as the API's per-call cap requires.
+     *
+     * <p>Almost always exactly one call: the scheduler generates a handful of meetings per day, well
+     * under the cap. The chunking exists so that a future scheduler change cannot silently start
+     * failing every seeded day at the ninety-ninth meeting.
+     */
+    private static void createMeetingsForDay(final GraphQlClient client, final LocalDate date,
+            final List<GeneratedMeeting> meetings) {
+        for (int from = 0; from < meetings.size(); from += MAX_MEETINGS_PER_BULK_CREATE) {
+            final int to = Math.min(from + MAX_MEETINGS_PER_BULK_CREATE, meetings.size());
+            createMeetingBatch(client, date, meetings.subList(from, to));
+        }
+    }
+
+    private static void createMeetingBatch(final GraphQlClient client, final LocalDate date,
+            final List<GeneratedMeeting> meetings) {
+        final String mutation = "mutation CreateMeetings($date: String!, $meetings: [MeetingInput!]!) { "
+                + "createMeetings(date: $date, meetings: $meetings) { failures { index errors } } }";
+        final List<Map<String, Object>> inputs = meetings.stream().map(DemoData::meetingInput).toList();
+
+        final JsonNode result = client.execute(mutation, Map.of("date", date.toString(), "meetings", inputs));
+        failIfAnyRejected(result.get("createMeetings"), meetings);
+        for (final GeneratedMeeting meeting : meetings) {
+            System.out.println("  " + meeting.subject() + " - " + meeting.startTime().format(MEETING_TIME_FORMAT)
+                    + " to " + meeting.endTime().format(MEETING_TIME_FORMAT));
+        }
+    }
+
+    private static Map<String, Object> meetingInput(final GeneratedMeeting meeting) {
         final Map<String, Object> input = new HashMap<>();
         input.put("roomId", meeting.roomId());
         input.put("organiserId", meeting.organiserId());
@@ -357,11 +420,32 @@ final class DemoData {
         input.put("subject", meeting.subject());
         input.put("startTime", meeting.startTime().format(MEETING_TIME_FORMAT));
         input.put("endTime", meeting.endTime().format(MEETING_TIME_FORMAT));
+        return input;
+    }
 
-        final JsonNode result = client.execute(mutation, Map.of("meeting", input));
-        failIfErrors(result.get("createMeeting"), "createMeeting(" + meeting.subject() + ")");
-        System.out.println("  " + meeting.subject() + " - " + meeting.startTime().format(MEETING_TIME_FORMAT)
-                + " to " + meeting.endTime().format(MEETING_TIME_FORMAT));
+    /**
+     * Bulk creation reports rejections per input rather than failing the call, so a partial success
+     * has to be turned back into a hard failure here - this tool has no way to recover from one, and
+     * a silently short day is worse than a stopped run.
+     *
+     * <p>The failure names the SUBJECT, not just the index: an index into a request array the caller
+     * can no longer see is not a diagnosis.
+     */
+    private static void failIfAnyRejected(final JsonNode payload, final List<GeneratedMeeting> meetings) {
+        final JsonNode failures = payload.get("failures");
+        if (failures == null || failures.isEmpty()) {
+            return;
+        }
+        final List<String> described = new ArrayList<>();
+        for (final JsonNode failure : failures) {
+            final int index = failure.get("index").asInt();
+            final String subject = index >= 0 && index < meetings.size()
+                    ? meetings.get(index).subject()
+                    : "meeting at index " + index;
+            described.add(subject + " " + failure.get("errors"));
+        }
+        throw new IllegalStateException("createMeetings rejected " + described.size() + " of "
+                + meetings.size() + " meeting(s): " + String.join("; ", described));
     }
 
     private static void failIfErrors(final JsonNode payload, final String operationDescription) {

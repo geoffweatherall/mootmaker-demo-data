@@ -28,6 +28,32 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @DisplayName("Generated demo data satisfies its scheduling invariants")
 class GeneratedDataInvariantsAcceptanceIT {
 
+    // The seeded window, named once rather than repeated: the day-keyed schema has no "all
+    // meetings" query, so reads must ask for an explicit list of dates and every read here has to
+    // agree with the range the invariants assert over. DAYS_IN_PAST behind today and WEEKS_AHEAD in
+    // front, so a freshly-seeded environment has history rather than starting empty today.
+    /**
+     * The API's cap on how many dates one {@code workspace} call may ask for, mirrored rather than
+     * imported - this suite depends on the published schema, which documents the number, not on
+     * mootmaker-api's Java.
+     */
+    private static final int MAX_DATES_PER_REQUEST = 42;
+
+    /**
+     * The booking horizon, mirrored from the schema so {@link #serverToday()} can subtract it back
+     * off {@code latestBookableDate}.
+     */
+    private static final int BOOKING_HORIZON_DAYS = 180;
+
+    // Anchored on the SERVER's today, not this machine's. The seeder runs in Lambda, in UTC; this
+    // suite runs on a workstation, which in New Zealand is up to 13 hours ahead. For part of every
+    // day the two disagree about what "today" is, and the window then runs one day past what the
+    // seeder was ever asked to fill - failing as "business days with no meetings: [<the last one>]",
+    // which says nothing about clocks. Observed at 01:42 NZST, when the server was still on the
+    // previous UTC date. Two authorities on one fact is the bug; ask the one that owns it.
+    private LocalDate windowStart;
+    private LocalDate windowEnd;
+
     private static final int BUSINESS_DAY_START_HOUR = 8;
     private static final int BUSINESS_DAY_END_HOUR = 17;
 
@@ -54,6 +80,10 @@ class GeneratedDataInvariantsAcceptanceIT {
     void seedAndReadBack() {
         // demo-data has no reset path by design, so clearing first is mootmaker-api's job - the
         // same two deliberate steps a human performs by hand.
+        final LocalDate today = serverToday();
+        windowStart = today.minusDays(7);
+        windowEnd = today.plusWeeks(6);
+
         DemoDataLambda.reset();
 
         final JsonNode summary = DemoDataLambda.run();
@@ -72,7 +102,7 @@ class GeneratedDataInvariantsAcceptanceIT {
         // The window reaches DAYS_IN_PAST behind today as well as WEEKS_AHEAD in front, so a
         // freshly-seeded environment has history rather than starting empty today.
         final List<LocalDate> missing = new ArrayList<>();
-        for (LocalDate day = LocalDate.now().minusDays(7); day.isBefore(LocalDate.now().plusWeeks(6)); day = day.plusDays(1)) {
+        for (LocalDate day = windowStart; day.isBefore(windowEnd); day = day.plusDays(1)) {
             if (isWeekend(day)) {
                 continue;
             }
@@ -202,11 +232,39 @@ class GeneratedDataInvariantsAcceptanceIT {
 
     // --- Reads ----------------------------------------------------------------------------
 
+    /**
+     * Every meeting the seeder placed in the window, read a day at a time.
+     *
+     * <p>There is no {@code Query.meetings} to ask any more - the composite entry point replaced it,
+     * and a day-keyed store has no "all meetings" to return without a date range anyway. The window
+     * below is the same one {@link #everyBusinessDayInTheWindowIsPopulated} asserts over, widened by
+     * a day at each end so that a seeder which overshoots is caught rather than silently trimmed by
+     * the query itself.
+     */
     private List<Meeting> fetchMeetings() {
-        final JsonNode data = client.execute(
-                "query { meetings { id startTime endTime room { id } organiser { id } attendees { id } } }");
+        final List<String> dates = new ArrayList<>();
+        for (LocalDate day = windowStart.minusDays(1); day.isBefore(windowEnd.plusDays(1)); day = day.plusDays(1)) {
+            dates.add(day.toString());
+        }
         final List<Meeting> found = new ArrayList<>();
-        for (final JsonNode meeting : data.get("meetings")) {
+        // In chunks, because workspace(dates:) caps at MAX_DATES_PER_REQUEST and this window is
+        // wider than that. Weekends are included rather than skipped: the seeder is supposed to
+        // place nothing on them, and a read that only asked for weekdays would make the invariant
+        // asserting exactly that pass without being able to fail.
+        for (int from = 0; from < dates.size(); from += MAX_DATES_PER_REQUEST) {
+            final List<String> chunk = dates.subList(from, Math.min(from + MAX_DATES_PER_REQUEST, dates.size()));
+            collectMeetings(chunk, found);
+        }
+        return found;
+    }
+
+    private void collectMeetings(final List<String> dates, final List<Meeting> found) {
+        final JsonNode data = client.execute(
+                "query SeededMeetings($dates: [String!]) { workspace(dates: $dates) { days { meetings { "
+                        + "id startTime endTime room { id } organiser { id } attendees { id } } } } }",
+                Map.of("dates", dates));
+        for (final JsonNode day : data.get("workspace").get("days")) {
+            for (final JsonNode meeting : day.get("meetings")) {
             final List<String> attendeeIds = new ArrayList<>();
             for (final JsonNode attendee : meeting.get("attendees")) {
                 attendeeIds.add(attendee.get("id").asText());
@@ -218,21 +276,36 @@ class GeneratedDataInvariantsAcceptanceIT {
                     attendeeIds,
                     LocalDateTime.parse(meeting.get("startTime").asText()),
                     LocalDateTime.parse(meeting.get("endTime").asText())));
+            }
         }
-        return found;
     }
 
     private Map<String, Integer> fetchRoomCapacities() {
-        final JsonNode data = client.execute("query { rooms { id capacity } }");
+        final JsonNode data = client.execute("query { workspace { rooms { id capacity } } }");
         final Map<String, Integer> capacities = new HashMap<>();
-        for (final JsonNode room : data.get("rooms")) {
+        for (final JsonNode room : data.get("workspace").get("rooms")) {
             capacities.put(room.get("id").asText(), room.get("capacity").asInt());
         }
         return capacities;
     }
 
+    /**
+     * The server's own current date, derived from the boundary it publishes.
+     *
+     * <p>{@code latestBookableDate} is computed per request as the server's today plus the booking
+     * horizon, so subtracting the horizon recovers the date this environment believes it is. The
+     * alternative, {@code LocalDate.now()}, is this workstation's opinion - a different fact wearing
+     * the same name.
+     */
+    private LocalDate serverToday() {
+        final JsonNode data = client.execute("query { workspace { boundaries { latestBookableDate } } }");
+        final String latestBookable = data.get("workspace").get("boundaries").get("latestBookableDate").asText();
+        return LocalDate.parse(latestBookable).minusDays(BOOKING_HORIZON_DAYS);
+    }
+
     private int fetchCount(final String collection) {
-        return client.execute("query { " + collection + " { id } }").get(collection).size();
+        return client.execute("query { workspace { " + collection + " { id } } }")
+                .get("workspace").get(collection).size();
     }
 
     // --- Helpers --------------------------------------------------------------------------
