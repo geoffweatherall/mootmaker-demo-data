@@ -21,13 +21,27 @@ this. Two commands, and neither is a surprise.
 
 ## What a run does
 
-Three independent concerns, each of which does nothing once its target is already met:
+Four independent concerns, each of which does nothing once its target is already met:
 
 | Concern | Target | What makes it repeatable |
 |---|---|---|
 | People | `TARGET_PEOPLE` (default 40) | Creates the shortfall only |
 | Rooms | `TARGET_ROOMS` (default 10) | Creates the shortfall only, never reusing an existing room's name |
 | Meetings | every weekday from `DAYS_IN_PAST` (default 7) behind today to `WEEKS_AHEAD` (default 6) ahead | Skips any day that already has a meeting |
+| Guaranteed meetings | every weekday in the same window, for each person in `/mootmaker/<env>/demo-data/guaranteed-person-ids` | Skips any day the person already organises or attends |
+
+**Guaranteed meetings exist because the Meetings concern asks the wrong question for a personal
+calendar.** It asks whether a day has *any* meeting; the webapp's calendar is filtered to one
+person. Organisers and attendees are picked at random from every Person, so the published demo
+account — whose credentials the signed-out home page shows every visitor — gets meetings only by
+luck, at roughly 1-in-`TARGET_PEOPLE` odds per slot. A visitor clicking **Calendar** could see
+nothing.
+
+The list is written by `mootmaker-api`'s Terraform (`demo-data-credentials.tf`) and holds the demo
+user's Person id. It is **optional**: an environment whose `mootmaker-api` predates the parameter
+reads an empty list and behaves exactly as before. Each guaranteed meeting is placed in a room with
+no bookings at all that day, so it cannot collide with existing data — if every room is busy at some
+point, the day is skipped with a message rather than risking `TimeRangeUnavailable`.
 
 Seeding a fresh environment and topping up `production` are therefore the **same operation** — on a
 new environment every day in the window is empty, so the run fills all of them; on a populated one

@@ -28,7 +28,8 @@ public final class DemoDataHandler
     final Targets targets = Targets.fromEnvironment();
     System.out.println("Running with " + concerns + " and " + targets);
 
-    final Summary summary = DemoData.run(GraphQlClient.fromSsm(), targets, concerns);
+    final Summary summary =
+        DemoData.run(GraphQlClient.fromSsm(), targets, concerns, SsmSecrets.guaranteedPersonIds());
 
     return Map.of(
         "peopleCreated", summary.peopleCreated(),
