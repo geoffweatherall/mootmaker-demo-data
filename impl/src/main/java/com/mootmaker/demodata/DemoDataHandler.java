@@ -31,10 +31,14 @@ public final class DemoDataHandler
     final Summary summary =
         DemoData.run(GraphQlClient.fromSsm(), targets, concerns, SsmSecrets.guaranteedPersonIds());
 
+    // Built explicitly rather than by serialising Summary, so every field is a deliberate part of
+    // the invocation's contract - the acceptance suite and the release pipeline both read this.
+    // The cost is that a new Summary field is silent until it is added here too.
     return Map.of(
         "peopleCreated", summary.peopleCreated(),
         "roomsCreated", summary.roomsCreated(),
         "weekdaysToppedUp", summary.weekdaysToppedUp(),
-        "meetingsCreated", summary.meetingsCreated());
+        "meetingsCreated", summary.meetingsCreated(),
+        "guaranteedMeetingsCreated", summary.guaranteedMeetingsCreated());
   }
 }
