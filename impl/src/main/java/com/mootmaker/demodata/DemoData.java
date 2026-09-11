@@ -292,9 +292,9 @@ final class DemoData {
    * freshly-seeded environment has a calendar with history rather than one that starts empty today.
    * A past day is topped up at most once: once it has meetings, the same "this day has no meetings"
    * guard leaves it alone forever.
-   */
-  /**
-   * Package-private (rather than private) so tests can exercise it directly, like weekdaysBetween.
+   *
+   * <p>Package-private (rather than private) so tests can exercise it directly, like
+   * weekdaysBetween.
    */
   static Summary topUpMeetings(
       final GraphQlClient client, final Targets targets, final Random random) {
