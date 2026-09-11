@@ -52,3 +52,38 @@ jobs:
 
       - name: Unit tests (impl/ only)
         run: mvn -B -ntp -f impl/pom.xml test
+
+  # Separate from unit-tests so a formatting failure reads as a formatting failure, and so that
+  # job's name stays exactly what branch protection expects.
+  #
+  # This one DOES cover verify/, which unit-tests must not. That rule is about running the
+  # acceptance suite, which needs a deployed environment and real AWS. These steps only parse and
+  # analyse source - no test is executed - so its code is held to the same standard as impl/.
+  code-style:
+    name: code-style
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      # Fails if anything is not in google-java-format's Google style. `mvn spotless:apply` fixes it.
+      - name: Formatting (google-java-format)
+        run: |
+          mvn -B -ntp -f impl/pom.xml spotless:check
+          mvn -B -ntp -f verify/pom.xml spotless:check
+
+      # google_checks.xml as shipped; our deviations are in config/checkstyle-suppressions.xml.
+      - name: Style (Checkstyle, Google ruleset)
+        run: |
+          mvn -B -ntp -f impl/pom.xml checkstyle:check
+          mvn -B -ntp -f verify/pom.xml checkstyle:check
+
+      # Unused imports and friends. javac cannot see these; the editor can, because it is Eclipse
+      # JDT. This is that same compiler, so CI and the editor agree.
+      - name: Compiler diagnostics (ecj)
+        run: ./lint-java.sh
