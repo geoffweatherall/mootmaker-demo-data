@@ -18,6 +18,15 @@ and meetings. One of the project's three deployable components, alongside `mootm
   [`mootmaker/designs/demo-data-component.md`](https://github.com/geoffweatherall/mootmaker/blob/main/designs/archive/demo-data-component.md)
   before it is acted on. Clearing an environment is a separate, deliberate invocation of
   `mootmaker-api`'s `database-reset`.
+- **Formatting is google-java-format, Google style — run `mvn -f impl/pom.xml spotless:apply`.** The
+  `code-style` PR check fails on unformatted code, on Checkstyle violations, and on unused imports
+  and deprecated calls that `javac` does not warn about. To set an editor up, run
+  `../mootmaker/tools/install-workspace-config.sh --force` — it links the versioned VS Code settings
+  and installs the extensions, with no manual steps. Two of those settings fail *silently* when
+  wrong, so if Java formatting seems not to work, read
+  [`../mootmaker/docs/process/java-code-style.md`](https://github.com/geoffweatherall/mootmaker/blob/main/docs/process/java-code-style.md)
+  before changing anything. Deviations from Google's ruleset are in
+  `config/checkstyle-suppressions.xml`, each with its reason.
 - **Every write goes through the GraphQL API**, never DynamoDB directly. That is what makes
   generated data proof the API's own validation accepts it, and it is why there is no shared storage
   model between this repo and `mootmaker-api`.
