@@ -22,6 +22,8 @@ class GuaranteedMeetingsTest {
 
   private static final String DEMO = "demo-person";
   private static final String SOMEONE_ELSE = "other-person";
+  private static final String FREE_PERSON = "free-person";
+  private static final List<String> POOL = List.of(DEMO, SOMEONE_ELSE, FREE_PERSON);
 
   private static final LocalDate MON = LocalDate.of(2026, 9, 7);
   private static final LocalDate TUE = LocalDate.of(2026, 9, 8);
@@ -98,7 +100,8 @@ class GuaranteedMeetingsTest {
     final List<RoomDetail> rooms =
         List.of(new RoomDetail("room-1", "One", 10), new RoomDetail("room-2", "Two", 10));
 
-    final Optional<DemoData.Slot> slot = DemoData.pickFreeSlot(rooms, List.of(allDay("room-1")));
+    final Optional<DemoData.Slot> slot =
+        DemoData.pickFreeSlot(rooms, List.of(allDay("room-1")), DEMO, POOL);
 
     assertTrue(slot.isPresent());
     assertEquals("room-2", slot.get().room().id());
@@ -112,7 +115,7 @@ class GuaranteedMeetingsTest {
     final List<RoomDetail> rooms = List.of(new RoomDetail("room-1", "One", 10));
 
     final Optional<DemoData.Slot> slot =
-        DemoData.pickFreeSlot(rooms, List.of(meeting("room-1", SOMEONE_ELSE)));
+        DemoData.pickFreeSlot(rooms, List.of(meeting("room-1", SOMEONE_ELSE)), DEMO, POOL);
 
     assertTrue(slot.isPresent(), "a room busy only in the morning must still yield a slot");
     assertTrue(
@@ -126,7 +129,8 @@ class GuaranteedMeetingsTest {
         List.of(new RoomDetail("room-1", "One", 10), new RoomDetail("room-2", "Two", 10));
 
     assertFalse(
-        DemoData.pickFreeSlot(rooms, List.of(allDay("room-1"), allDay("room-2"))).isPresent());
+        DemoData.pickFreeSlot(rooms, List.of(allDay("room-1"), allDay("room-2")), DEMO, POOL)
+            .isPresent());
   }
 
   @Test
@@ -136,7 +140,7 @@ class GuaranteedMeetingsTest {
     final List<RoomDetail> rooms =
         List.of(new RoomDetail("tiny", "Phone booth", 1), new RoomDetail("room-2", "Two", 4));
 
-    final Optional<DemoData.Slot> slot = DemoData.pickFreeSlot(rooms, List.of());
+    final Optional<DemoData.Slot> slot = DemoData.pickFreeSlot(rooms, List.of(), DEMO, POOL);
 
     assertTrue(slot.isPresent());
     assertEquals("room-2", slot.get().room().id());
@@ -144,7 +148,59 @@ class GuaranteedMeetingsTest {
 
   @Test
   void findsNothingWhenThereAreNoRoomsAtAll() {
-    assertFalse(DemoData.pickFreeSlot(List.of(), List.of()).isPresent());
+    assertFalse(DemoData.pickFreeSlot(List.of(), List.of(), DEMO, POOL).isPresent());
+  }
+
+  // --- freeAttendee: the double-booking rule -------------------------------------------
+
+  @Test
+  void refusesAnAttendeeAlreadyInAnOverlappingMeeting() {
+    // The defect the acceptance suite caught. A free ROOM says nothing about whether the person
+    // invited into it is already booked elsewhere, and "no person is in two overlapping meetings"
+    // is an invariant. SOMEONE_ELSE is busy 09:00-12:00 in another room.
+    final List<MeetingDetail> day = List.of(meeting("room-9", SOMEONE_ELSE));
+
+    final Optional<String> picked =
+        DemoData.freeAttendee(
+            day, List.of(DEMO, SOMEONE_ELSE), DEMO, LocalTime.of(10, 0), LocalTime.of(10, 30));
+
+    assertFalse(picked.isPresent(), "the only candidate is busy, so there is no valid attendee");
+  }
+
+  @Test
+  void picksSomeoneWhoIsFreeOverTheSlot() {
+    final List<MeetingDetail> day = List.of(meeting("room-9", SOMEONE_ELSE));
+
+    final Optional<String> picked =
+        DemoData.freeAttendee(day, POOL, DEMO, LocalTime.of(10, 0), LocalTime.of(10, 30));
+
+    assertEquals(Optional.of(FREE_PERSON), picked);
+  }
+
+  @Test
+  void countsAnAttendeeOfAnotherMeetingAsBusy() {
+    // Busy means on the meeting at all, not organising it - a person listed as an attendee
+    // elsewhere is just as double-booked.
+    final List<MeetingDetail> day = List.of(meeting("room-9", "someone", FREE_PERSON));
+
+    final Optional<String> picked =
+        DemoData.freeAttendee(
+            day, List.of(DEMO, FREE_PERSON), DEMO, LocalTime.of(10, 0), LocalTime.of(10, 30));
+
+    assertFalse(picked.isPresent());
+  }
+
+  @Test
+  void allowsSomeoneBusyOnlyOutsideTheSlot() {
+    // Touching end-to-start is not an overlap, matching the API's own rule: busy 09:00-12:00 is
+    // free for a 12:00 start.
+    final List<MeetingDetail> day = List.of(meeting("room-9", SOMEONE_ELSE));
+
+    final Optional<String> picked =
+        DemoData.freeAttendee(
+            day, List.of(DEMO, SOMEONE_ELSE), DEMO, LocalTime.of(12, 0), LocalTime.of(12, 30));
+
+    assertEquals(Optional.of(SOMEONE_ELSE), picked);
   }
 
   // --- SsmSecrets.splitIds ------------------------------------------------------------
