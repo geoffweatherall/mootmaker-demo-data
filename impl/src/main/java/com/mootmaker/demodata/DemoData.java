@@ -167,7 +167,7 @@ final class DemoData {
     // itself give a guaranteed person their meeting for that day. Running this first would create
     // one and then have the top-up skip the day as no longer empty - the same meeting count by a
     // less obvious route, and a day whose only meeting is the guaranteed one.
-    final int guaranteed = guaranteeMeetings(client, guaranteedPersonIds, targets, random);
+    final int guaranteed = guaranteeMeetings(client, guaranteedPersonIds, targets);
 
     return new Summary(
         peopleCreated,
@@ -428,8 +428,8 @@ final class DemoData {
     }
   }
 
-  /** A room and a start time that is free in it. */
-  record Slot(RoomDetail room, LocalTime start) {}
+  /** A room, a start time free in it, and a person free to attend at that time. */
+  record Slot(RoomDetail room, LocalTime start, String attendeeId) {}
 
   /**
    * Gives every guaranteed person at least one meeting on every work day in the window.
@@ -442,13 +442,14 @@ final class DemoData {
    * <p>Idempotent like the other concerns: a day where the person already appears is skipped, so a
    * second run creates nothing.
    *
+   * <p>Deliberately deterministic - first free room, first free hour, first free attendee - unlike
+   * the top-up, which randomises to look like a real calendar. This concern exists to make a
+   * property certain, so randomising its placement would only add ways for it to fail.
+   *
    * <p>Package-private so tests can exercise it directly.
    */
   static int guaranteeMeetings(
-      final GraphQlClient client,
-      final List<String> guaranteedPersonIds,
-      final Targets targets,
-      final Random random) {
+      final GraphQlClient client, final List<String> guaranteedPersonIds, final Targets targets) {
     if (guaranteedPersonIds.isEmpty()) {
       System.out.println("No guaranteed persons configured for this environment - skipping.");
       return 0;
@@ -489,16 +490,15 @@ final class DemoData {
 
       for (final LocalDate day : missing) {
         final List<MeetingDetail> existing = byDate.getOrDefault(day, List.of());
-        final Optional<Slot> slot = pickFreeSlot(rooms, existing);
+        final Optional<Slot> slot = pickFreeSlot(rooms, existing, personId, personIds);
         if (slot.isEmpty()) {
           // Every room is booked across every candidate hour. Placing a meeting anyway risks
           // TimeRangeUnavailable, so the day is skipped loudly rather than the run failing - a
           // demo calendar with one thin day is a far smaller problem than a failed release.
-          System.out.println("  " + day + ": no free slot in any room, skipping.");
+          System.out.println("  " + day + ": no free room-and-attendee combination, skipping.");
           continue;
         }
-        final GeneratedMeeting meeting =
-            guaranteedMeetingFor(personId, slot.get(), personIds, day, random);
+        final GeneratedMeeting meeting = guaranteedMeetingFor(personId, slot.get(), day);
         createMeetingsForDay(client, day, List.of(meeting));
         created++;
         // Record it so a second guaranteed person does not pick the same slot for the same day.
@@ -534,18 +534,26 @@ final class DemoData {
   }
 
   /**
-   * A room and start time with nothing booked over it that day.
+   * A room, a free time in it, and someone free to attend.
    *
    * <p>Searches SLOTS rather than whole free rooms. Requiring a room with no bookings at all was
    * the first attempt and it failed precisely where it was needed: a day busy enough to leave a
    * person uncovered is also a day with every room touched at least once, so the concern skipped
-   * exactly the days it existed for. Measured on a seeded environment - the one uncovered day had
-   * all ten rooms in use and nothing was created.
+   * exactly the days it existed for.
    *
-   * <p>Pure, so the search is testable without AWS.
+   * <p>The ATTENDEE matters as much as the room, and missing that was the second bug. A free room
+   * says nothing about whether the person invited into it is already in a meeting somewhere else,
+   * and "no person is in two overlapping meetings" is an invariant the acceptance suite enforces.
+   * The guaranteed person needs no such check - they reached this point precisely because they have
+   * no meeting that day - but whoever joins them does.
+   *
+   * <p>Pure, so the whole search is testable without AWS.
    */
   static Optional<Slot> pickFreeSlot(
-      final List<RoomDetail> rooms, final List<MeetingDetail> dayMeetings) {
+      final List<RoomDetail> rooms,
+      final List<MeetingDetail> dayMeetings,
+      final String organiserId,
+      final List<String> personIds) {
     for (final RoomDetail room : rooms) {
       if (room.capacity() < MIN_BOOKABLE_PEOPLE) {
         continue;
@@ -557,8 +565,13 @@ final class DemoData {
           hour++) {
         final LocalTime start = LocalTime.of(hour, 0);
         final LocalTime end = start.plusMinutes(GUARANTEED_MEETING_MINUTES);
-        if (inRoom.stream().noneMatch(m -> m.overlaps(start, end))) {
-          return Optional.of(new Slot(room, start));
+        if (inRoom.stream().anyMatch(m -> m.overlaps(start, end))) {
+          continue;
+        }
+        final Optional<String> attendee =
+            freeAttendee(dayMeetings, personIds, organiserId, start, end);
+        if (attendee.isPresent()) {
+          return Optional.of(new Slot(room, start, attendee.get()));
         }
       }
     }
@@ -566,26 +579,37 @@ final class DemoData {
   }
 
   /**
-   * A single meeting with {@code personId} as organiser and one other person as attendee.
-   *
-   * <p>Times are kept simple because the room is free for the whole day: a half-hour on the hour
-   * inside business hours cannot collide with anything. The organiser is never also listed as an
-   * attendee - the API rejects that with {@code OrganiserIsAttendee}.
+   * Someone other than {@code organiserId} who is in no meeting overlapping the slot. Pure, so the
+   * double-booking rule is testable directly - it was a real defect, found by the acceptance
+   * suite's own invariant rather than by anything written here.
    */
-  private static GeneratedMeeting guaranteedMeetingFor(
-      final String personId,
-      final Slot slot,
+  static Optional<String> freeAttendee(
+      final List<MeetingDetail> dayMeetings,
       final List<String> personIds,
-      final LocalDate day,
-      final Random random) {
-    final List<String> others = personIds.stream().filter(id -> !id.equals(personId)).toList();
-    final String attendee = others.get(random.nextInt(others.size()));
+      final String organiserId,
+      final LocalTime start,
+      final LocalTime end) {
+    final Set<String> busy = new HashSet<>();
+    for (final MeetingDetail meeting : dayMeetings) {
+      if (meeting.overlaps(start, end)) {
+        busy.add(meeting.organiserId());
+        busy.addAll(meeting.attendeeIds());
+      }
+    }
+    return personIds.stream()
+        .filter(id -> !id.equals(organiserId))
+        .filter(id -> !busy.contains(id))
+        .findFirst();
+  }
+
+  private static GeneratedMeeting guaranteedMeetingFor(
+      final String personId, final Slot slot, final LocalDate day) {
     final LocalDateTime start = day.atTime(slot.start());
     return new GeneratedMeeting(
         slot.room().id(),
         "Demo catch-up",
         personId,
-        List.of(attendee),
+        List.of(slot.attendeeId()),
         start,
         start.plusMinutes(GUARANTEED_MEETING_MINUTES));
   }
