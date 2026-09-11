@@ -63,7 +63,7 @@ variable "schedule_enabled" {
 }
 
 variable "reserved_concurrency" {
-  description = "Reserved concurrent executions for the Lambda. -1 means unreserved (the AWS default), which is what this deployment uses. Setting 1 would make overlapping runs structurally impossible, but AWS rejects any reservation leaving the account with fewer than 10 unreserved executions and this account's TOTAL quota is 10, so no value is settable. Running unreserved is an accepted risk, not an outstanding problem - see lambda.tf. Set to 1 if that quota is ever raised."
+  description = "Reserved concurrent executions for the Lambda. -1 means unreserved (the AWS default), which is what this deployment uses. Setting 1 would make overlapping runs structurally impossible. That was impossible until 2026-09-07: AWS rejects any reservation leaving the account with fewer than 10 unreserved executions, and this account's TOTAL quota was 10. The quota is now 1,000 (mootmaker#72), so a reservation IS settable and running unreserved is now a deliberate choice rather than a constraint - see mootmaker-demo-data#27 and lambda.tf."
   type        = number
   default     = -1
 }
