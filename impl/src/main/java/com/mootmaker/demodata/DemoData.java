@@ -55,6 +55,18 @@ final class DemoData {
    */
   private static final int MAX_MEETINGS_PER_BULK_CREATE = 99;
 
+  /**
+   * Bounds for a guaranteed meeting's start hour, and its length. Well inside the 08:00-17:00
+   * business day the scheduler uses, because the point is a meeting that certainly succeeds rather
+   * than one that looks realistically distributed - the room is free all day, so nothing here has
+   * to avoid anything.
+   */
+  private static final int GUARANTEED_MEETING_EARLIEST_HOUR = 9;
+
+  private static final int GUARANTEED_MEETING_LATEST_HOUR = 15;
+
+  private static final int GUARANTEED_MEETING_MINUTES = 30;
+
   private DemoData() {}
 
   /**
@@ -128,9 +140,18 @@ final class DemoData {
   }
 
   /** Summary of a completed run, returned as the Lambda invocation's response payload. */
-  record Summary(int peopleCreated, int roomsCreated, int weekdaysToppedUp, int meetingsCreated) {}
+  record Summary(
+      int peopleCreated,
+      int roomsCreated,
+      int weekdaysToppedUp,
+      int meetingsCreated,
+      int guaranteedMeetingsCreated) {}
 
-  static Summary run(final GraphQlClient client, final Targets targets, final Concerns concerns) {
+  static Summary run(
+      final GraphQlClient client,
+      final Targets targets,
+      final Concerns concerns,
+      final List<String> guaranteedPersonIds) {
     final Random random = new Random();
 
     final int peopleCreated = concerns.people() ? topUpPeople(client, targets.people(), random) : 0;
@@ -138,15 +159,22 @@ final class DemoData {
 
     if (!concerns.meetings()) {
       System.out.println("Meetings concern disabled for this run - skipping.");
-      return new Summary(peopleCreated, roomsCreated, 0, 0);
+      return new Summary(peopleCreated, roomsCreated, 0, 0, 0);
     }
     final Summary meetingSummary = topUpMeetings(client, targets, random);
+
+    // AFTER the top-up, not before: the top-up fills days that have no meetings at all, which may
+    // itself give a guaranteed person their meeting for that day. Running this first would create
+    // one and then have the top-up skip the day as no longer empty - the same meeting count by a
+    // less obvious route, and a day whose only meeting is the guaranteed one.
+    final int guaranteed = guaranteeMeetings(client, guaranteedPersonIds, targets, random);
 
     return new Summary(
         peopleCreated,
         roomsCreated,
         meetingSummary.weekdaysToppedUp(),
-        meetingSummary.meetingsCreated());
+        meetingSummary.meetingsCreated(),
+        guaranteed);
   }
 
   // --- People ---------------------------------------------------------------------------
@@ -336,7 +364,7 @@ final class DemoData {
     if (targetDays.isEmpty()) {
       System.out.println(
           "Every weekday in the window already has at least one meeting - nothing to do.");
-      return new Summary(0, 0, 0, 0);
+      return new Summary(0, 0, 0, 0, 0);
     }
     System.out.println("Found " + targetDays.size() + " empty weekday(s): " + targetDays);
 
@@ -349,7 +377,7 @@ final class DemoData {
               + " room(s) and "
               + personIds.size()
               + " person(s). Re-run with the people and rooms concerns enabled first.");
-      return new Summary(0, 0, 0, 0);
+      return new Summary(0, 0, 0, 0, 0);
     }
 
     final List<RoomInfo> roomInfos =
@@ -381,7 +409,185 @@ final class DemoData {
             + " weekday(s) topped up, "
             + meetings.size()
             + " meeting(s) created.");
-    return new Summary(0, 0, targetDays.size(), meetings.size());
+    return new Summary(0, 0, targetDays.size(), meetings.size(), 0);
+  }
+
+  // --- Guaranteed meetings --------------------------------------------------------------
+
+  /** One existing meeting, reduced to what the guarantee needs to reason about. */
+  record MeetingDetail(
+      String roomId, String organiserId, List<String> attendeeIds, LocalTime start, LocalTime end) {
+
+    boolean involves(final String personId) {
+      return organiserId.equals(personId) || attendeeIds.contains(personId);
+    }
+
+    /** Touching end-to-start is not an overlap, matching the API's own rule. */
+    boolean overlaps(final LocalTime otherStart, final LocalTime otherEnd) {
+      return start.isBefore(otherEnd) && otherStart.isBefore(end);
+    }
+  }
+
+  /** A room and a start time that is free in it. */
+  record Slot(RoomDetail room, LocalTime start) {}
+
+  /**
+   * Gives every guaranteed person at least one meeting on every work day in the window.
+   *
+   * <p>Without this the demo account's calendar is populated only by luck: {@link MeetingScheduler}
+   * picks organisers and attendees at random from every Person, so the account the signed-out home
+   * page hands every visitor can show an empty calendar. {@code topUpMeetings} does not help - it
+   * asks whether a day has ANY meeting, and the calendar is filtered to one person.
+   *
+   * <p>Idempotent like the other concerns: a day where the person already appears is skipped, so a
+   * second run creates nothing.
+   *
+   * <p>Package-private so tests can exercise it directly.
+   */
+  static int guaranteeMeetings(
+      final GraphQlClient client,
+      final List<String> guaranteedPersonIds,
+      final Targets targets,
+      final Random random) {
+    if (guaranteedPersonIds.isEmpty()) {
+      System.out.println("No guaranteed persons configured for this environment - skipping.");
+      return 0;
+    }
+
+    final LocalDate today = LocalDate.now();
+    final List<LocalDate> workDays =
+        weekdaysBetween(
+            today.minusDays(targets.daysInPast()), today.plusDays((long) targets.weeksAhead() * 7));
+    if (workDays.isEmpty()) {
+      return 0;
+    }
+
+    final Map<LocalDate, List<MeetingDetail>> byDate = fetchMeetingDetails(client, workDays);
+    final List<RoomDetail> rooms = fetchRooms(client);
+    final List<String> personIds = fetchPersonIds(client);
+    if (rooms.isEmpty() || personIds.size() < MIN_BOOKABLE_PEOPLE) {
+      System.out.println(
+          "Skipping guaranteed meetings: need at least one room and "
+              + MIN_BOOKABLE_PEOPLE
+              + " people, found "
+              + rooms.size()
+              + " and "
+              + personIds.size()
+              + ".");
+      return 0;
+    }
+
+    int created = 0;
+    for (final String personId : guaranteedPersonIds) {
+      final List<LocalDate> missing = daysMissingPerson(byDate, workDays, personId);
+      if (missing.isEmpty()) {
+        System.out.println("Person " + personId + " already has a meeting on every work day.");
+        continue;
+      }
+      System.out.println(
+          "Person " + personId + " is missing meetings on " + missing.size() + " work day(s).");
+
+      for (final LocalDate day : missing) {
+        final List<MeetingDetail> existing = byDate.getOrDefault(day, List.of());
+        final Optional<Slot> slot = pickFreeSlot(rooms, existing);
+        if (slot.isEmpty()) {
+          // Every room is booked across every candidate hour. Placing a meeting anyway risks
+          // TimeRangeUnavailable, so the day is skipped loudly rather than the run failing - a
+          // demo calendar with one thin day is a far smaller problem than a failed release.
+          System.out.println("  " + day + ": no free slot in any room, skipping.");
+          continue;
+        }
+        final GeneratedMeeting meeting =
+            guaranteedMeetingFor(personId, slot.get(), personIds, day, random);
+        createMeetingsForDay(client, day, List.of(meeting));
+        created++;
+        // Record it so a second guaranteed person does not pick the same slot for the same day.
+        byDate
+            .computeIfAbsent(day, ignored -> new ArrayList<>())
+            .add(
+                new MeetingDetail(
+                    slot.get().room().id(),
+                    personId,
+                    meeting.attendeeIds(),
+                    slot.get().start(),
+                    slot.get().start().plusMinutes(GUARANTEED_MEETING_MINUTES)));
+      }
+    }
+    System.out.println("Guaranteed meetings created: " + created + ".");
+    return created;
+  }
+
+  /**
+   * Work days on which {@code personId} is neither organiser nor attendee of any meeting. Pure, so
+   * the guarantee's core decision is testable without AWS or a deployed environment.
+   */
+  static List<LocalDate> daysMissingPerson(
+      final Map<LocalDate, List<MeetingDetail>> byDate,
+      final List<LocalDate> workDays,
+      final String personId) {
+    return workDays.stream()
+        .filter(
+            day ->
+                byDate.getOrDefault(day, List.of()).stream()
+                    .noneMatch(meeting -> meeting.involves(personId)))
+        .toList();
+  }
+
+  /**
+   * A room and start time with nothing booked over it that day.
+   *
+   * <p>Searches SLOTS rather than whole free rooms. Requiring a room with no bookings at all was
+   * the first attempt and it failed precisely where it was needed: a day busy enough to leave a
+   * person uncovered is also a day with every room touched at least once, so the concern skipped
+   * exactly the days it existed for. Measured on a seeded environment - the one uncovered day had
+   * all ten rooms in use and nothing was created.
+   *
+   * <p>Pure, so the search is testable without AWS.
+   */
+  static Optional<Slot> pickFreeSlot(
+      final List<RoomDetail> rooms, final List<MeetingDetail> dayMeetings) {
+    for (final RoomDetail room : rooms) {
+      if (room.capacity() < MIN_BOOKABLE_PEOPLE) {
+        continue;
+      }
+      final List<MeetingDetail> inRoom =
+          dayMeetings.stream().filter(m -> m.roomId().equals(room.id())).toList();
+      for (int hour = GUARANTEED_MEETING_EARLIEST_HOUR;
+          hour <= GUARANTEED_MEETING_LATEST_HOUR;
+          hour++) {
+        final LocalTime start = LocalTime.of(hour, 0);
+        final LocalTime end = start.plusMinutes(GUARANTEED_MEETING_MINUTES);
+        if (inRoom.stream().noneMatch(m -> m.overlaps(start, end))) {
+          return Optional.of(new Slot(room, start));
+        }
+      }
+    }
+    return Optional.empty();
+  }
+
+  /**
+   * A single meeting with {@code personId} as organiser and one other person as attendee.
+   *
+   * <p>Times are kept simple because the room is free for the whole day: a half-hour on the hour
+   * inside business hours cannot collide with anything. The organiser is never also listed as an
+   * attendee - the API rejects that with {@code OrganiserIsAttendee}.
+   */
+  private static GeneratedMeeting guaranteedMeetingFor(
+      final String personId,
+      final Slot slot,
+      final List<String> personIds,
+      final LocalDate day,
+      final Random random) {
+    final List<String> others = personIds.stream().filter(id -> !id.equals(personId)).toList();
+    final String attendee = others.get(random.nextInt(others.size()));
+    final LocalDateTime start = day.atTime(slot.start());
+    return new GeneratedMeeting(
+        slot.room().id(),
+        "Demo catch-up",
+        personId,
+        List.of(attendee),
+        start,
+        start.plusMinutes(GUARANTEED_MEETING_MINUTES));
   }
 
   /**
@@ -454,6 +660,47 @@ final class DemoData {
       }
     }
     return withMeetings;
+  }
+
+  /**
+   * Existing meetings for the given days, with just the room and people fields the guarantee needs.
+   *
+   * <p>Separate from {@link #fetchDatesWithMeetings} rather than replacing it: that one answers
+   * "does this day have any meeting at all", is asked for every top-up run, and selecting organiser
+   * and attendees there would make every run pay for fields it does not use.
+   */
+  private static Map<LocalDate, List<MeetingDetail>> fetchMeetingDetails(
+      final GraphQlClient client, final List<LocalDate> days) {
+    final String query =
+        "query MeetingDetails($dates: [String!]) { "
+            + "workspace(dates: $dates) { days { date meetings { "
+            + "room { id } organiser { id } attendees { id } startTime endTime } } } }";
+    final List<String> dates = days.stream().map(LocalDate::toString).toList();
+    if (dates.isEmpty()) {
+      return new HashMap<>();
+    }
+
+    final JsonNode result = client.execute(query, Map.of("dates", dates));
+    final Map<LocalDate, List<MeetingDetail>> byDate = new HashMap<>();
+    for (final JsonNode day : result.get("workspace").get("days")) {
+      final LocalDate date = LocalDate.parse(day.get("date").asText());
+      final List<MeetingDetail> meetings = new ArrayList<>();
+      for (final JsonNode meeting : day.get("meetings")) {
+        final List<String> attendees = new ArrayList<>();
+        for (final JsonNode attendee : meeting.get("attendees")) {
+          attendees.add(attendee.get("id").asText());
+        }
+        meetings.add(
+            new MeetingDetail(
+                meeting.get("room").get("id").asText(),
+                meeting.get("organiser").get("id").asText(),
+                attendees,
+                LocalDateTime.parse(meeting.get("startTime").asText()).toLocalTime(),
+                LocalDateTime.parse(meeting.get("endTime").asText()).toLocalTime()));
+      }
+      byDate.put(date, meetings);
+    }
+    return byDate;
   }
 
   // --- Writes ---------------------------------------------------------------------------

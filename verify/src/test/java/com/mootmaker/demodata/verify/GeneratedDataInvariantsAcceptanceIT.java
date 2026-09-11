@@ -95,6 +95,14 @@ class GeneratedDataInvariantsAcceptanceIT {
     assertTrue(
         summary.get("meetingsCreated").asInt() > 0,
         "seeding a freshly reset environment must create meetings, got: " + summary);
+    // The guaranteed-meetings concern, proved against a real environment rather than a unit
+    // test's in-memory map. mootmaker-api publishes this environment's demo Person id, and a
+    // freshly reset environment gives that person nothing - so a zero here means the SSM
+    // parameter, the GraphQL query shape or the booking validation is wrong, none of which a
+    // unit test can see.
+    assertTrue(
+        summary.get("guaranteedMeetingsCreated").asInt() > 0,
+        "seeding a freshly reset environment must create guaranteed meetings, got: " + summary);
 
     meetings = fetchMeetings();
     roomCapacities = fetchRoomCapacities();
@@ -245,13 +253,19 @@ class GeneratedDataInvariantsAcceptanceIT {
   @DisplayName("running a second time changes nothing")
   void aSecondRunIsANoOp() {
     // The idempotency guard, and the single assertion most likely to catch a regression in any
-    // of the three concerns: every one of them is defined by doing nothing when already done.
+    // of the four concerns: every one of them is defined by doing nothing when already done.
     final JsonNode summary = DemoDataLambda.run();
 
     assertEquals(0, summary.get("peopleCreated").asInt(), "second run created people: " + summary);
     assertEquals(0, summary.get("roomsCreated").asInt(), "second run created rooms: " + summary);
     assertEquals(
         0, summary.get("meetingsCreated").asInt(), "second run created meetings: " + summary);
+    // Counted separately from meetingsCreated, so without this line the guarantee could create a
+    // meeting for every guaranteed person on every run and the assertion above would stay green.
+    assertEquals(
+        0,
+        summary.get("guaranteedMeetingsCreated").asInt(),
+        "second run created guaranteed meetings: " + summary);
     assertEquals(
         meetings.size(), fetchMeetings().size(), "the second run changed the stored meeting count");
   }
