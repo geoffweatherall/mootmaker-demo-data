@@ -20,11 +20,8 @@ readonly ECJ_VERSION="3.46.100"
 readonly REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Which warnings fail the build. All five are at zero, so anything new is genuinely new.
-#
-# `deprecation` is included here, unlike mootmaker-api's copy of this script - that repository has a
-# known deprecated AWS SDK call in DaysInvalidatedPublisher and cannot turn it on without failing
-# every build. This one has none, so it gets the stronger gate. The lists are allowed to differ;
-# each reflects what its own repository can actually hold itself to today.
+# Kept byte-identical to the copy in the other Java repository, so drift shows up in a plain diff.
+# If they ever have to differ, say why here.
 readonly WARNINGS="+unusedImport,+unusedLocal,+unusedPrivateMember,+unusedParam,+deprecation"
 
 ecj_jar() {
