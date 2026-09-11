@@ -415,12 +415,21 @@ final class DemoData {
   // --- Guaranteed meetings --------------------------------------------------------------
 
   /** One existing meeting, reduced to what the guarantee needs to reason about. */
-  record MeetingDetail(String roomId, String organiserId, List<String> attendeeIds) {
+  record MeetingDetail(
+      String roomId, String organiserId, List<String> attendeeIds, LocalTime start, LocalTime end) {
 
     boolean involves(final String personId) {
       return organiserId.equals(personId) || attendeeIds.contains(personId);
     }
+
+    /** Touching end-to-start is not an overlap, matching the API's own rule. */
+    boolean overlaps(final LocalTime otherStart, final LocalTime otherEnd) {
+      return start.isBefore(otherEnd) && otherStart.isBefore(end);
+    }
   }
+
+  /** A room and a start time that is free in it. */
+  record Slot(RoomDetail room, LocalTime start) {}
 
   /**
    * Gives every guaranteed person at least one meeting on every work day in the window.
@@ -480,22 +489,28 @@ final class DemoData {
 
       for (final LocalDate day : missing) {
         final List<MeetingDetail> existing = byDate.getOrDefault(day, List.of());
-        final Optional<RoomDetail> room = pickFreeRoom(rooms, existing);
-        if (room.isEmpty()) {
-          // Every room is booked at some point that day. Placing a meeting anyway risks
+        final Optional<Slot> slot = pickFreeSlot(rooms, existing);
+        if (slot.isEmpty()) {
+          // Every room is booked across every candidate hour. Placing a meeting anyway risks
           // TimeRangeUnavailable, so the day is skipped loudly rather than the run failing - a
           // demo calendar with one thin day is a far smaller problem than a failed release.
-          System.out.println("  " + day + ": no room free all day, skipping.");
+          System.out.println("  " + day + ": no free slot in any room, skipping.");
           continue;
         }
         final GeneratedMeeting meeting =
-            guaranteedMeetingFor(personId, room.get(), personIds, day, random);
+            guaranteedMeetingFor(personId, slot.get(), personIds, day, random);
         createMeetingsForDay(client, day, List.of(meeting));
         created++;
-        // Record it so a second guaranteed person does not pick the same room for the same day.
+        // Record it so a second guaranteed person does not pick the same slot for the same day.
         byDate
             .computeIfAbsent(day, ignored -> new ArrayList<>())
-            .add(new MeetingDetail(room.get().id(), personId, meeting.attendeeIds()));
+            .add(
+                new MeetingDetail(
+                    slot.get().room().id(),
+                    personId,
+                    meeting.attendeeIds(),
+                    slot.get().start(),
+                    slot.get().start().plusMinutes(GUARANTEED_MEETING_MINUTES)));
       }
     }
     System.out.println("Guaranteed meetings created: " + created + ".");
@@ -519,21 +534,35 @@ final class DemoData {
   }
 
   /**
-   * A room with no meetings at all on the day, and capacity for the two people involved.
+   * A room and start time with nothing booked over it that day.
    *
-   * <p>Free ALL DAY rather than free at some chosen time, deliberately. The API rejects an
-   * overlapping booking with {@code TimeRangeUnavailable}, and a room nobody has booked cannot
-   * clash whatever slot is picked - which keeps slot arithmetic out of this entirely. Pure, so it
-   * is testable directly.
+   * <p>Searches SLOTS rather than whole free rooms. Requiring a room with no bookings at all was
+   * the first attempt and it failed precisely where it was needed: a day busy enough to leave a
+   * person uncovered is also a day with every room touched at least once, so the concern skipped
+   * exactly the days it existed for. Measured on a seeded environment - the one uncovered day had
+   * all ten rooms in use and nothing was created.
+   *
+   * <p>Pure, so the search is testable without AWS.
    */
-  static Optional<RoomDetail> pickFreeRoom(
+  static Optional<Slot> pickFreeSlot(
       final List<RoomDetail> rooms, final List<MeetingDetail> dayMeetings) {
-    final Set<String> busy =
-        dayMeetings.stream().map(MeetingDetail::roomId).collect(Collectors.toSet());
-    return rooms.stream()
-        .filter(room -> !busy.contains(room.id()))
-        .filter(room -> room.capacity() >= MIN_BOOKABLE_PEOPLE)
-        .findFirst();
+    for (final RoomDetail room : rooms) {
+      if (room.capacity() < MIN_BOOKABLE_PEOPLE) {
+        continue;
+      }
+      final List<MeetingDetail> inRoom =
+          dayMeetings.stream().filter(m -> m.roomId().equals(room.id())).toList();
+      for (int hour = GUARANTEED_MEETING_EARLIEST_HOUR;
+          hour <= GUARANTEED_MEETING_LATEST_HOUR;
+          hour++) {
+        final LocalTime start = LocalTime.of(hour, 0);
+        final LocalTime end = start.plusMinutes(GUARANTEED_MEETING_MINUTES);
+        if (inRoom.stream().noneMatch(m -> m.overlaps(start, end))) {
+          return Optional.of(new Slot(room, start));
+        }
+      }
+    }
+    return Optional.empty();
   }
 
   /**
@@ -545,18 +574,15 @@ final class DemoData {
    */
   private static GeneratedMeeting guaranteedMeetingFor(
       final String personId,
-      final RoomDetail room,
+      final Slot slot,
       final List<String> personIds,
       final LocalDate day,
       final Random random) {
     final List<String> others = personIds.stream().filter(id -> !id.equals(personId)).toList();
     final String attendee = others.get(random.nextInt(others.size()));
-    final int startHour =
-        GUARANTEED_MEETING_EARLIEST_HOUR
-            + random.nextInt(GUARANTEED_MEETING_LATEST_HOUR - GUARANTEED_MEETING_EARLIEST_HOUR + 1);
-    final LocalDateTime start = day.atTime(startHour, 0);
+    final LocalDateTime start = day.atTime(slot.start());
     return new GeneratedMeeting(
-        room.id(),
+        slot.room().id(),
         "Demo catch-up",
         personId,
         List.of(attendee),
@@ -648,7 +674,7 @@ final class DemoData {
     final String query =
         "query MeetingDetails($dates: [String!]) { "
             + "workspace(dates: $dates) { days { date meetings { "
-            + "room { id } organiser { id } attendees { id } } } } }";
+            + "room { id } organiser { id } attendees { id } startTime endTime } } } }";
     final List<String> dates = days.stream().map(LocalDate::toString).toList();
     if (dates.isEmpty()) {
       return new HashMap<>();
@@ -668,7 +694,9 @@ final class DemoData {
             new MeetingDetail(
                 meeting.get("room").get("id").asText(),
                 meeting.get("organiser").get("id").asText(),
-                attendees));
+                attendees,
+                LocalDateTime.parse(meeting.get("startTime").asText()).toLocalTime(),
+                LocalDateTime.parse(meeting.get("endTime").asText()).toLocalTime()));
       }
       byDate.put(date, meetings);
     }

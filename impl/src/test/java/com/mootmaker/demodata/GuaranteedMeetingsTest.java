@@ -28,9 +28,17 @@ class GuaranteedMeetingsTest {
   private static final LocalDate WED = LocalDate.of(2026, 9, 9);
   private static final List<LocalDate> WORK_DAYS = List.of(MON, TUE, WED);
 
+  /** An all-morning booking: a room holding one is busy 09:00-12:00 and free after. */
   private static MeetingDetail meeting(
       final String room, final String organiser, final String... attendees) {
-    return new MeetingDetail(room, organiser, List.of(attendees));
+    return new MeetingDetail(
+        room, organiser, List.of(attendees), LocalTime.of(9, 0), LocalTime.of(12, 0));
+  }
+
+  /** A booking that covers every candidate hour, so its room yields no slot at all. */
+  private static MeetingDetail allDay(final String room) {
+    return new MeetingDetail(
+        room, SOMEONE_ELSE, List.of(), LocalTime.of(0, 0), LocalTime.of(23, 59));
   }
 
   // --- daysMissingPerson --------------------------------------------------------------
@@ -83,49 +91,60 @@ class GuaranteedMeetingsTest {
     assertEquals(WORK_DAYS, DemoData.daysMissingPerson(Map.of(), WORK_DAYS, DEMO));
   }
 
-  // --- pickFreeRoom -------------------------------------------------------------------
+  // --- pickFreeSlot -------------------------------------------------------------------
 
   @Test
-  void picksARoomWithNoMeetingsThatDay() {
+  void picksARoomWithNothingBookedThatDay() {
     final List<RoomDetail> rooms =
         List.of(new RoomDetail("room-1", "One", 10), new RoomDetail("room-2", "Two", 10));
 
-    final Optional<RoomDetail> picked =
-        DemoData.pickFreeRoom(rooms, List.of(meeting("room-1", SOMEONE_ELSE)));
+    final Optional<DemoData.Slot> slot = DemoData.pickFreeSlot(rooms, List.of(allDay("room-1")));
 
-    assertTrue(picked.isPresent());
-    assertEquals("room-2", picked.get().id());
+    assertTrue(slot.isPresent());
+    assertEquals("room-2", slot.get().room().id());
   }
 
   @Test
-  void findsNoRoomWhenEveryRoomIsBookedAtSomePoint() {
-    // Free ALL DAY is the rule, not free at a chosen time: the API rejects an overlap with
-    // TimeRangeUnavailable, and this is what keeps slot arithmetic out of the concern entirely.
+  void findsAGapInARoomThatIsBusyOnlyPartOfTheDay() {
+    // The case that made the first implementation useless. A day busy enough to leave someone
+    // uncovered has every room touched at least once, so "a room with no bookings" found nothing
+    // exactly when it was needed. Every room here is booked 09:00-12:00 and still usable.
+    final List<RoomDetail> rooms = List.of(new RoomDetail("room-1", "One", 10));
+
+    final Optional<DemoData.Slot> slot =
+        DemoData.pickFreeSlot(rooms, List.of(meeting("room-1", SOMEONE_ELSE)));
+
+    assertTrue(slot.isPresent(), "a room busy only in the morning must still yield a slot");
+    assertTrue(
+        slot.get().start().isAfter(LocalTime.of(11, 59)),
+        "the slot must start after the existing booking ends, got " + slot.get().start());
+  }
+
+  @Test
+  void findsNothingWhenEveryRoomIsBookedAcrossEveryCandidateHour() {
     final List<RoomDetail> rooms =
         List.of(new RoomDetail("room-1", "One", 10), new RoomDetail("room-2", "Two", 10));
 
     assertFalse(
-        DemoData.pickFreeRoom(
-                rooms, List.of(meeting("room-1", SOMEONE_ELSE), meeting("room-2", SOMEONE_ELSE)))
-            .isPresent());
+        DemoData.pickFreeSlot(rooms, List.of(allDay("room-1"), allDay("room-2"))).isPresent());
   }
 
   @Test
-  void skipsAFreeRoomThatCannotHoldBothPeople() {
+  void skipsARoomThatCannotHoldBothPeople() {
     // A one-seat room is free and still unusable: the meeting has an organiser and an attendee,
     // and the API rejects the booking with InsufficientCapacity.
     final List<RoomDetail> rooms =
         List.of(new RoomDetail("tiny", "Phone booth", 1), new RoomDetail("room-2", "Two", 4));
 
-    final Optional<RoomDetail> picked = DemoData.pickFreeRoom(rooms, List.of());
+    final Optional<DemoData.Slot> slot = DemoData.pickFreeSlot(rooms, List.of());
 
-    assertTrue(picked.isPresent());
-    assertEquals("room-2", picked.get().id());
+    assertTrue(slot.isPresent());
+    assertEquals("room-2", slot.get().room().id());
   }
 
   @Test
-  void findsNoRoomWhenThereAreNoRoomsAtAll() {
-    assertFalse(DemoData.pickFreeRoom(List.of(), List.of()).isPresent());
+  void findsNothingWhenThereAreNoRoomsAtAll() {
+    assertFalse(DemoData.pickFreeSlot(List.of(), List.of()).isPresent());
   }
 
   // --- SsmSecrets.splitIds ------------------------------------------------------------
