@@ -2,6 +2,7 @@ package com.mootmaker.demodata.verify;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import module java.base;
 
@@ -10,6 +11,9 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import software.amazon.awssdk.services.ssm.SsmClient;
+import software.amazon.awssdk.services.ssm.model.GetParametersRequest;
+import software.amazon.awssdk.services.ssm.model.GetParametersResponse;
 
 /**
  * Asserts the <b>invariants</b> generated demo data must satisfy, against a real deployed
@@ -61,6 +65,7 @@ class GeneratedDataInvariantsAcceptanceIT {
 
   private List<Meeting> meetings;
   private Map<String, Integer> roomCapacities;
+  private List<String> guaranteedPersonIds;
 
   private record Meeting(
       String id,
@@ -96,17 +101,16 @@ class GeneratedDataInvariantsAcceptanceIT {
     assertTrue(
         summary.get("meetingsCreated").asInt() > 0,
         "seeding a freshly reset environment must create meetings, got: " + summary);
-    // The guaranteed-meetings concern, proved against a real environment rather than a unit
-    // test's in-memory map. mootmaker-api publishes this environment's demo Person id, and a
-    // freshly reset environment gives that person nothing - so a zero here means the SSM
-    // parameter, the GraphQL query shape or the booking validation is wrong, none of which a
-    // unit test can see.
-    assertTrue(
-        summary.get("guaranteedMeetingsCreated").asInt() > 0,
-        "seeding a freshly reset environment must create guaranteed meetings, got: " + summary);
+    // guaranteedMeetingsCreated is deliberately NOT asserted > 0 here: topUpMeetings runs first
+    // and randomly distributes ~500 meetings across 38 people, so it can itself give the
+    // guaranteed person every work day purely by chance, leaving guaranteeMeetings with nothing
+    // left to do - a correct, idempotent zero (see mootmaker-demo-data#32). What has to be true
+    // regardless of how the RNG landed is checked below, against the read-back data, in
+    // guaranteedPersonHasAMeetingEveryWorkDay.
 
     meetings = fetchMeetings();
     roomCapacities = fetchRoomCapacities();
+    guaranteedPersonIds = fetchGuaranteedPersonIds();
   }
 
   @Test
@@ -127,6 +131,43 @@ class GeneratedDataInvariantsAcceptanceIT {
       }
     }
     assertTrue(missing.isEmpty(), "business days with no meetings: " + missing);
+  }
+
+  @Test
+  @DisplayName("every guaranteed person has a meeting on every work day in the window")
+  void guaranteedPersonHasAMeetingEveryWorkDay() {
+    // The guarantee's actual contract - see mootmaker-demo-data#32. guaranteeMeetings's own
+    // created-count can legitimately be zero on a run where topUpMeetings' random placement
+    // already covered every day for this person by chance, so that counter can't be what this
+    // suite checks. This can: regardless of which of the two concerns is responsible for any
+    // given day, the guaranteed person must show up as organiser or attendee on all of them.
+    // Optional by design (see SsmSecrets#guaranteedPersonIds) - an environment whose
+    // mootmaker-api predates the parameter has nothing configured to check here, and that is not
+    // itself a failure.
+    assumeTrue(
+        !guaranteedPersonIds.isEmpty(),
+        "no guaranteed person ids configured for this environment (see"
+            + " mootmaker-api/deploy/terraform/demo-data-credentials.tf) - skipping");
+
+    for (final String personId : guaranteedPersonIds) {
+      final Set<LocalDate> daysWithPerson =
+          meetings.stream()
+              .filter(m -> m.participantIds().contains(personId))
+              .map(m -> m.start().toLocalDate())
+              .collect(Collectors.toSet());
+
+      final List<LocalDate> missing = new ArrayList<>();
+      for (LocalDate day = windowStart; day.isBefore(windowEnd); day = day.plusDays(1)) {
+        if (isWeekend(day)) {
+          continue;
+        }
+        if (!daysWithPerson.contains(day)) {
+          missing.add(day);
+        }
+      }
+      assertTrue(
+          missing.isEmpty(), "guaranteed person " + personId + " has no meeting on: " + missing);
+    }
   }
 
   @Test
@@ -385,6 +426,30 @@ class GeneratedDataInvariantsAcceptanceIT {
       capacities.put(room.get("id").asText(), room.get("capacity").asInt());
     }
     return capacities;
+  }
+
+  /**
+   * Person ids the guarantee must cover, read directly from SSM rather than through GraphQL - this
+   * is a Person id, not something the schema exposes a query for. Written by mootmaker-api (see its
+   * demo-data-credentials.tf), the same parameter {@code SsmSecrets.guaranteedPersonIds} reads
+   * inside the Lambda itself. Empty, not an error, when the parameter does not exist - see that
+   * method's own doc comment for why the guarantee is optional.
+   */
+  private List<String> fetchGuaranteedPersonIds() {
+    final String name =
+        "/mootmaker/" + System.getenv("ENVIRONMENT") + "/demo-data/guaranteed-person-ids";
+    try (SsmClient ssm = SsmClient.create()) {
+      final GetParametersResponse response =
+          ssm.getParameters(GetParametersRequest.builder().names(name).build());
+      if (response.parameters().isEmpty()) {
+        return List.of();
+      }
+      final String value = response.parameters().getFirst().value();
+      if (value == null || value.isBlank()) {
+        return List.of();
+      }
+      return Arrays.stream(value.split(",")).map(String::trim).filter(id -> !id.isEmpty()).toList();
+    }
   }
 
   /**

@@ -49,6 +49,14 @@
       <artifactId>lambda</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- Reads the guaranteed-person-ids parameter mootmaker-api's Terraform writes, so the
+         guarantee's own invariant (a meeting on every work day, not "the counter was nonzero this
+         run" - see mootmaker-demo-data#32) can be checked against the person it actually names. -->
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>ssm</artifactId>
+      <scope>test</scope>
+    </dependency>
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
