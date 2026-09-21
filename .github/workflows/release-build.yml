@@ -85,18 +85,18 @@ jobs:
       # workflow" - so a bare checkout would clone mootmaker-release, which has no impl/ at all.
       # See mootmaker#40. `ref` falls back to github.ref so standalone dispatch at a tag still
       # works unchanged.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           repository: geoffweatherall/mootmaker-demo-data
           ref: ${{ inputs.ref || github.ref }}
           path: mootmaker-demo-data
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           repository: geoffweatherall/mootmaker-api
           path: mootmaker-api
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '25'
@@ -124,12 +124,12 @@ jobs:
       # deploy.sh and undeploy.sh both shell out to terraform; the runner does not have it
       # preinstalled. Without this, every deploy and teardown fails with "terraform: command not
       # found" - and a failed teardown is how an ephemeral environment gets stranded.
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v4
         with:
           terraform_wrapper: false
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: arn:aws:iam::431071856068:role/mootmaker-release-github-actions-deploy
           aws-region: us-east-1
@@ -164,7 +164,7 @@ jobs:
         id: artifact
         run: echo "name=mootmaker-demo-data-${{ inputs.version }}" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: ${{ steps.artifact.outputs.name }}
           path: mootmaker-demo-data/impl/target/demo-data.jar
