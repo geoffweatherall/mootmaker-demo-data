@@ -63,9 +63,9 @@ variable "schedule_enabled" {
 }
 
 variable "reserved_concurrency" {
-  description = "Reserved concurrent executions for the Lambda. -1 means unreserved (the AWS default), which is what this deployment uses. Setting 1 would make overlapping runs structurally impossible. That was impossible until 2026-09-07: AWS rejects any reservation leaving the account with fewer than 10 unreserved executions, and this account's TOTAL quota was 10. The quota is now 1,000 (mootmaker#72), so a reservation IS settable and running unreserved is now a deliberate choice rather than a constraint - see mootmaker-demo-data#27 and lambda.tf."
+  description = "Reserved concurrent executions for the Lambda. Set to 1, making overlapping runs structurally impossible: Lambda throttles a second invocation outright rather than letting it race the first. That was impossible until 2026-09-07 - AWS rejects any reservation leaving the account with fewer than 10 unreserved executions, and this account's TOTAL quota was 10, so every value was rejected. The quota is now 1,000 (mootmaker#72), so the reservation is settable - see mootmaker-demo-data#27 and lambda.tf. Unrelated to MAX_CONCURRENT_REQUESTS in DemoData.java: that bounds the GraphQL calls THIS Lambda makes outward per invocation, not invocations of this Lambda itself, so reserving 1 here does not throttle that internal fan-out."
   type        = number
-  default     = -1
+  default     = 1
 }
 
 variable "log_retention_days" {
