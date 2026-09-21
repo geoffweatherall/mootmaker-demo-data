@@ -67,6 +67,7 @@ class GeneratedDataInvariantsAcceptanceIT {
       String roomId,
       String organiserId,
       List<String> attendeeIds,
+      List<String> attendeeStatuses,
       LocalDateTime start,
       LocalDateTime end) {
 
@@ -243,6 +244,40 @@ class GeneratedDataInvariantsAcceptanceIT {
   }
 
   @Test
+  @DisplayName("attendee status mix is roughly 60% Going, the rest split across the other three")
+  void attendeeStatusMixIsRoughlyTheConfiguredSplit() {
+    // A statistical check, not an exact one - see mootmaker-demo-data#32 for why an assertion
+    // that depends on the RNG must be tolerant enough that only a real regression can fail it,
+    // not this run's particular seed. The sample here is every generated attendee across the
+    // whole seeded window (hundreds, per targetsAreMet's meeting counts), which is large enough
+    // that a 15-point band around each target is many standard deviations wide - a genuinely
+    // correct 60/13.3/13.3/13.3 generator essentially never misses it, while a generator that
+    // regressed to (say) a uniform 25/25/25/25 split reliably would.
+    final List<String> allStatuses =
+        meetings.stream().flatMap(m -> m.attendeeStatuses().stream()).toList();
+    assertTrue(
+        allStatuses.size() > 100,
+        "sample too small to say anything about the mix statistically: " + allStatuses.size());
+
+    final Map<String, Long> counts =
+        allStatuses.stream().collect(Collectors.groupingBy(s -> s, Collectors.counting()));
+    final double total = allStatuses.size();
+    final double going = counts.getOrDefault("Going", 0L) / total;
+    final double notGoing = counts.getOrDefault("NotGoing", 0L) / total;
+    final double maybe = counts.getOrDefault("Maybe", 0L) / total;
+    final double noResponse = counts.getOrDefault("NoResponse", 0L) / total;
+
+    assertTrue(
+        going > 0.45 && going < 0.75,
+        "Going share " + going + " is far from the ~60% target - counts: " + counts);
+    for (final double share : List.of(notGoing, maybe, noResponse)) {
+      assertTrue(
+          share > 0.03 && share < 0.28,
+          "a non-Going share is far from the ~13.3% target - counts: " + counts);
+    }
+  }
+
+  @Test
   @DisplayName("the people and room targets are met exactly, not exceeded")
   void targetsAreMet() {
     assertEquals(40, fetchCount("people"), "people should be topped up to the configured target");
@@ -319,13 +354,16 @@ class GeneratedDataInvariantsAcceptanceIT {
     final JsonNode data =
         client.execute(
             "query SeededMeetings($dates: [String!]) { workspace(dates: $dates) { days { meetings {"
-                + " id startTime endTime room { id } organiser { id } attendees { id } } } } }",
+                + " id startTime endTime room { id } organiser { id }"
+                + " attendees { person { id } status } } } } }",
             Map.of("dates", dates));
     for (final JsonNode day : data.get("workspace").get("days")) {
       for (final JsonNode meeting : day.get("meetings")) {
         final List<String> attendeeIds = new ArrayList<>();
+        final List<String> attendeeStatuses = new ArrayList<>();
         for (final JsonNode attendee : meeting.get("attendees")) {
-          attendeeIds.add(attendee.get("id").asText());
+          attendeeIds.add(attendee.get("person").get("id").asText());
+          attendeeStatuses.add(attendee.get("status").asText());
         }
         found.add(
             new Meeting(
@@ -333,6 +371,7 @@ class GeneratedDataInvariantsAcceptanceIT {
                 meeting.get("room").get("id").asText(),
                 meeting.get("organiser").get("id").asText(),
                 attendeeIds,
+                attendeeStatuses,
                 LocalDateTime.parse(meeting.get("startTime").asText()),
                 LocalDateTime.parse(meeting.get("endTime").asText())));
       }

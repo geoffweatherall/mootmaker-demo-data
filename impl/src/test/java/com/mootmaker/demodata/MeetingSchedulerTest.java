@@ -266,6 +266,33 @@ class MeetingSchedulerTest {
             + fraction);
   }
 
+  /** Attendee statuses land roughly on the configured 60/13.3/13.3/13.3 mix. */
+  @Test
+  void attendeeStatusesFollowTheConfiguredMix() {
+    final List<GeneratedMeeting> meetings =
+        MeetingScheduler.generate(
+            tenRooms(), personIds(), businessDays(0, WIDE_RANGE_END_DAY_OFFSET), new Random(5));
+
+    final List<String> allStatuses =
+        meetings.stream().flatMap(m -> m.attendeeStatuses().stream()).toList();
+    assertTrue(allStatuses.size() > 100, "sample too small: " + allStatuses.size());
+
+    final Map<String, Long> counts =
+        allStatuses.stream().collect(Collectors.groupingBy(s -> s, Collectors.counting()));
+    final double total = allStatuses.size();
+    final double going = counts.getOrDefault("Going", 0L) / total;
+
+    assertTrue(going > 0.45 && going < 0.75, "Going share " + going + " - counts: " + counts);
+    for (final String other : List.of("NotGoing", "Maybe", "NoResponse")) {
+      final double share = counts.getOrDefault(other, 0L) / total;
+      assertTrue(share > 0.03 && share < 0.28, other + " share " + share + " - counts: " + counts);
+    }
+    assertEquals(
+        allStatuses.size(),
+        counts.values().stream().mapToLong(Long::longValue).sum(),
+        "every attendee status must be one of the four known values");
+  }
+
   @Test
   void atLeastHalfOfMeetingsForEachPersonAreFollowedByAGap() {
     final List<GeneratedMeeting> allMeetings =

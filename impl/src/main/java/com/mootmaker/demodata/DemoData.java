@@ -610,6 +610,12 @@ final class DemoData {
         "Demo catch-up",
         personId,
         List.of(slot.attendeeId()),
+        // Fixed rather than rolled from the status mix: this is a rare, single-attendee
+        // fallback path (only fires when a guaranteed person's day wasn't already covered by
+        // the main random generation), not part of the statistical mix
+        // attendeeStatusMixIsRoughlyTheConfiguredSplit checks - one NoResponse here per missed
+        // day is negligible against that test's sample size and tolerance.
+        List.of("NoResponse"),
         start,
         start.plusMinutes(GUARANTEED_MEETING_MINUTES));
   }
@@ -698,7 +704,7 @@ final class DemoData {
     final String query =
         "query MeetingDetails($dates: [String!]) { "
             + "workspace(dates: $dates) { days { date meetings { "
-            + "room { id } organiser { id } attendees { id } startTime endTime } } } }";
+            + "room { id } organiser { id } attendees { person { id } } startTime endTime } } } }";
     final List<String> dates = days.stream().map(LocalDate::toString).toList();
     if (dates.isEmpty()) {
       return new HashMap<>();
@@ -712,7 +718,7 @@ final class DemoData {
       for (final JsonNode meeting : day.get("meetings")) {
         final List<String> attendees = new ArrayList<>();
         for (final JsonNode attendee : meeting.get("attendees")) {
-          attendees.add(attendee.get("id").asText());
+          attendees.add(attendee.get("person").get("id").asText());
         }
         meetings.add(
             new MeetingDetail(
@@ -770,6 +776,12 @@ final class DemoData {
     input.put("roomId", meeting.roomId());
     input.put("organiserId", meeting.organiserId());
     input.put("attendeeIds", meeting.attendeeIds());
+    // Sets each attendee's initial response status to the generated mix (see MeetingScheduler's
+    // ATTENDEE_STATUS_CUMULATIVE_WEIGHTS) rather than leaving everyone at the API's own NoResponse
+    // default - see mootmaker-api's MeetingInput.attendeeStatuses doc comment for why this input
+    // exists at all (self-only respondToMeeting has no identity to call it as, for most generated
+    // attendees).
+    input.put("attendeeStatuses", meeting.attendeeStatuses());
     input.put("subject", meeting.subject());
     input.put("startTime", meeting.startTime().format(MEETING_TIME_FORMAT));
     input.put("endTime", meeting.endTime().format(MEETING_TIME_FORMAT));

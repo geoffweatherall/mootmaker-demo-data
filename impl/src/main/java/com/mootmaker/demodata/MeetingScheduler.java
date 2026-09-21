@@ -81,6 +81,19 @@ final class MeetingScheduler {
    */
   private static final double[] SMALL_MEETING_ATTENDEE_COUNT_CUMULATIVE_WEIGHTS = {0.55, 0.85, 1.0};
 
+  /**
+   * Per Geoff's explicit mix (designs/attendee-response-status.md): roughly 60% {@code Going}, the
+   * remaining ~40% split randomly and roughly evenly across {@code NotGoing}/{@code Maybe}/ {@code
+   * NoResponse}. Cumulative weights over that same ordering, matching the pattern above. The
+   * organiser is never in this pool - it only ever assigns a status to attendees.
+   */
+  private static final double[] ATTENDEE_STATUS_CUMULATIVE_WEIGHTS = {
+    0.60, 0.60 + (0.40 / 3), 0.60 + (0.40 / 3) * 2, 1.0
+  };
+
+  private static final List<String> ATTENDEE_STATUS_OPTIONS =
+      List.of("Going", "NotGoing", "Maybe", "NoResponse");
+
   record RoomInfo(String id, int capacity) {}
 
   record GeneratedMeeting(
@@ -88,6 +101,7 @@ final class MeetingScheduler {
       String subject,
       String organiserId,
       List<String> attendeeIds,
+      List<String> attendeeStatuses,
       LocalDateTime startTime,
       LocalDateTime endTime) {}
 
@@ -219,6 +233,8 @@ final class MeetingScheduler {
 
       final String organiserId = freePeople.getFirst();
       final List<String> attendeeIds = List.copyOf(freePeople.subList(1, 1 + attendeeCount));
+      final List<String> attendeeStatuses =
+          attendeeIds.stream().map(_ -> pickAttendeeStatus(random)).toList();
 
       markBusyWithOptionalGap(busyByPerson, organiserId, startTime, endTime, random);
       for (final String attendeeId : attendeeIds) {
@@ -227,7 +243,8 @@ final class MeetingScheduler {
 
       final String subject =
           SampleData.MEETING_SUBJECTS.get(random.nextInt(SampleData.MEETING_SUBJECTS.size()));
-      return new GeneratedMeeting(room.id(), subject, organiserId, attendeeIds, startTime, endTime);
+      return new GeneratedMeeting(
+          room.id(), subject, organiserId, attendeeIds, attendeeStatuses, startTime, endTime);
     }
     return null;
   }
@@ -244,6 +261,20 @@ final class MeetingScheduler {
       }
     }
     return SMALL_MEETING_ATTENDEE_COUNT_CUMULATIVE_WEIGHTS.length;
+  }
+
+  /**
+   * Rolls a weighted attendee status (see {@link #ATTENDEE_STATUS_CUMULATIVE_WEIGHTS}) - roughly
+   * 60% {@code Going}, the rest split evenly across the other three.
+   */
+  private static String pickAttendeeStatus(final Random random) {
+    final double roll = random.nextDouble();
+    for (int i = 0; i < ATTENDEE_STATUS_CUMULATIVE_WEIGHTS.length; i++) {
+      if (roll < ATTENDEE_STATUS_CUMULATIVE_WEIGHTS[i]) {
+        return ATTENDEE_STATUS_OPTIONS.get(i);
+      }
+    }
+    return ATTENDEE_STATUS_OPTIONS.getLast();
   }
 
   private static boolean isBusy(
