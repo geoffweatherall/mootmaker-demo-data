@@ -75,15 +75,18 @@ Magnitudes — how many people and rooms, how wide the window — are Terraform 
 payload fields, so a mistyped invocation can switch a concern off but can never ask for 4,000
 people.
 
-Runs are not serialised. The function would reserve a concurrency of 1 to make overlap structurally
-impossible, and until 2026-09-07 that was not available: this account's total Lambda concurrency
-quota was 10, and AWS refuses any reservation leaving fewer than 10 unreserved, so no value was
-settable. **The quota is now 1,000** (mootmaker#72), so the reservation is available and running
-unreserved is a choice rather than a constraint — tracked as #27.
+Runs are serialised: the function reserves a concurrency of 1 (`reserved_concurrency` in
+`deploy/terraform/variables.tf`), so a second invocation overlapping the first is throttled outright
+by Lambda rather than racing it. That reservation was not available until 2026-09-07: this account's
+total Lambda concurrency quota was 10, and AWS refuses any reservation leaving fewer than 10
+unreserved, so no value was settable. **The quota is now 1,000** (mootmaker#72), which is what made
+the reservation possible (#27). It throttles only overlapping invocations of *this* Lambda — it has
+no effect on `MAX_CONCURRENT_REQUESTS` in `DemoData.java`, which bounds the parallel GraphQL calls a
+single invocation makes outward, not invocations of this Lambda itself.
 
-Until that is set, overlap remains an accepted risk: it needs a manual invoke to land inside the few
-seconds the daily scheduled run is active, and the worst case is a few extra rooms or people in a
-demo environment, after which the next run is a no-op again because every concern is defined by its
+Before this was set, overlap was an accepted risk: it needed a manual invoke to land inside the few
+seconds the daily scheduled run is active, and the worst case was a few extra rooms or people in a
+demo environment, after which the next run was a no-op again because every concern is defined by its
 target rather than by what it last did.
 
 ### To clear and repopulate

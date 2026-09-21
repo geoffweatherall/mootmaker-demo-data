@@ -19,21 +19,21 @@ resource "aws_lambda_function" "demo_data" {
   # defaults to a 60-second read timeout - see the README's documented `--cli-read-timeout 900`.
   timeout = 900
 
-  # Off by default, and that is an accepted risk rather than an outstanding problem (Geoff,
-  # 2026-09-02).
+  # Reserved at 1 (mootmaker-demo-data#27), making the theoretical overlap below structurally
+  # impossible rather than merely unlikely: two runs racing could both observe 30 rooms and both
+  # create 10. Lambda now throttles a second concurrent invocation outright and visibly instead of
+  # letting it race the first.
   #
-  # The theoretical exposure: two runs overlapping could both observe 30 rooms and both create 10.
-  # The guard would be structural - reserve concurrency 1, so Lambda throttles the second
-  # invocation outright and visibly. This account cannot express that: its total Lambda concurrency
-  # quota is 10 (not the usual 1000) and AWS refuses any reservation leaving fewer than 10
-  # unreserved, so every value is rejected, not just this one.
+  # This was impossible until 2026-09-07 (Geoff, 2026-09-02, when it was still an accepted risk):
+  # this account's total Lambda concurrency quota was 10 (not the usual 1000), and AWS refuses any
+  # reservation leaving fewer than 10 unreserved, so every value was rejected, not just this one.
+  # The quota is now 1,000, so the reservation is settable and running unreserved became a choice
+  # rather than a constraint - see variables.tf.
   #
-  # Why that is fine here: overlap needs a manual invoke to land inside the few seconds a scheduled
-  # run is active, once a day. If it ever happened the result is a few extra rooms or people in a
-  # demo environment - not corruption, not data loss - and the next run is a no-op again because
-  # every concern is defined by its target rather than by what it last did. The variable stays so
-  # that setting it to 1 is the whole fix if the quota is ever raised, but nothing is waiting on
-  # that.
+  # Does not throttle DemoData's own internal fan-out: MAX_CONCURRENT_REQUESTS there bounds
+  # parallel GraphQL calls this Lambda makes OUT per invocation, not invocations of this Lambda
+  # itself - a single invocation still makes up to 8 concurrent AppSync calls under this
+  # reservation.
   reserved_concurrent_executions = var.reserved_concurrency
 
   # No credentials here, deliberately: the client id/secret and endpoints are read from SSM at
