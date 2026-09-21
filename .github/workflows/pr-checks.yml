@@ -39,7 +39,7 @@ concurrency:
 jobs:
   unit-tests:
     name: unit-tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
 
@@ -61,7 +61,7 @@ jobs:
   # analyse source - no test is executed - so its code is held to the same standard as impl/.
   code-style:
     name: code-style
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
 
