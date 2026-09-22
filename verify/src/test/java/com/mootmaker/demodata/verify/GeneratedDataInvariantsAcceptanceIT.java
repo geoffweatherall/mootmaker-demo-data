@@ -37,11 +37,16 @@ class GeneratedDataInvariantsAcceptanceIT {
   // agree with the range the invariants assert over. DAYS_IN_PAST behind today and WEEKS_AHEAD in
   // front, so a freshly-seeded environment has history rather than starting empty today.
   /**
-   * The API's cap on how many dates one {@code workspace} call may ask for, mirrored rather than
-   * imported - this suite depends on the published schema, which documents the number, not on
-   * mootmaker-api's Java.
+   * The chunk size this suite reads meetings in. Well under the API's separate 42-dates-per-call
+   * limit on the {@code workspace(dates:)} array itself (documented in the schema, not mirrored
+   * here since nothing else in this suite needs that number) - the constraint that actually sizes
+   * this constant is the API's cap on a single response's total meeting count ("The response would
+   * be too large: more than 2000 meetings across the requested dates" - hit for real once room
+   * occupancy rose under designs/realistic-demo-meeting-schedule.md). Five days keeps every chunk
+   * comfortably under 2000 even at MeetingScheduler's own MAX_MEETINGS_PER_ROOM_PER_DAY safety
+   * ceiling (10) across as many rooms as this tool is ever likely to manage.
    */
-  private static final int MAX_DATES_PER_REQUEST = 42;
+  private static final int MEETINGS_READ_CHUNK_SIZE = 5;
 
   /**
    * The booking horizon, mirrored from the schema so {@link #serverToday()} can subtract it back
@@ -420,13 +425,14 @@ class GeneratedDataInvariantsAcceptanceIT {
       dates.add(day.toString());
     }
     final List<Meeting> found = new ArrayList<>();
-    // In chunks, because workspace(dates:) caps at MAX_DATES_PER_REQUEST and this window is
-    // wider than that. Weekends are included rather than skipped: the seeder is supposed to
-    // place nothing on them, and a read that only asked for weekdays would make the invariant
-    // asserting exactly that pass without being able to fail.
-    for (int from = 0; from < dates.size(); from += MAX_DATES_PER_REQUEST) {
+    // In chunks of MEETINGS_READ_CHUNK_SIZE (well under MAX_DATES_PER_REQUEST - see that
+    // constant's own doc comment for the separate total-meeting-count cap this avoids). Weekends
+    // are included rather than skipped: the seeder is supposed to place nothing on them, and a
+    // read that only asked for weekdays would make the invariant asserting exactly that pass
+    // without being able to fail.
+    for (int from = 0; from < dates.size(); from += MEETINGS_READ_CHUNK_SIZE) {
       final List<String> chunk =
-          dates.subList(from, Math.min(from + MAX_DATES_PER_REQUEST, dates.size()));
+          dates.subList(from, Math.min(from + MEETINGS_READ_CHUNK_SIZE, dates.size()));
       collectMeetings(chunk, found);
     }
     return found;

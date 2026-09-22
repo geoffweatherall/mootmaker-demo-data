@@ -698,13 +698,38 @@ final class DemoData {
   }
 
   /**
+   * How many days' worth of full meeting detail ({@link #fetchMeetingDetails}) to request in one
+   * {@code workspace(dates:)} call. Distinct from any dates-array-length limit: the API separately
+   * caps the total number of meetings a single response may contain ("The response would be too
+   * large: more than 2000 meetings across the requested dates" - hit for real once room occupancy
+   * rose under designs/realistic-demo-meeting-schedule.md, in an environment whose 35-day window
+   * held over 2000 meetings). Five days keeps every chunk comfortably under that cap even at
+   * MeetingScheduler's own MAX_MEETINGS_PER_ROOM_PER_DAY safety ceiling (10) across as many rooms
+   * as this tool is ever likely to manage.
+   */
+  private static final int MAX_DATES_PER_MEETING_DETAILS_REQUEST = 5;
+
+  /**
    * Existing meetings for the given days, with just the room and people fields the guarantee needs.
    *
    * <p>Separate from {@link #fetchDatesWithMeetings} rather than replacing it: that one answers
    * "does this day have any meeting at all", is asked for every top-up run, and selecting organiser
    * and attendees there would make every run pay for fields it does not use.
+   *
+   * <p>Chunked by {@link #MAX_DATES_PER_MEETING_DETAILS_REQUEST} - see its own doc comment for why
+   * a single request across the whole window can fail once meeting volume is high enough.
    */
   private static Map<LocalDate, List<MeetingDetail>> fetchMeetingDetails(
+      final GraphQlClient client, final List<LocalDate> days) {
+    final Map<LocalDate, List<MeetingDetail>> byDate = new HashMap<>();
+    for (int from = 0; from < days.size(); from += MAX_DATES_PER_MEETING_DETAILS_REQUEST) {
+      final int to = Math.min(from + MAX_DATES_PER_MEETING_DETAILS_REQUEST, days.size());
+      byDate.putAll(fetchMeetingDetailsChunk(client, days.subList(from, to)));
+    }
+    return byDate;
+  }
+
+  private static Map<LocalDate, List<MeetingDetail>> fetchMeetingDetailsChunk(
       final GraphQlClient client, final List<LocalDate> days) {
     final String query =
         "query MeetingDetails($dates: [String!]) { "
@@ -712,7 +737,7 @@ final class DemoData {
             + "room { id } organiser { id } attendees { person { id } } startTime endTime } } } }";
     final List<String> dates = days.stream().map(LocalDate::toString).toList();
     if (dates.isEmpty()) {
-      return new HashMap<>();
+      return Map.of();
     }
 
     final JsonNode result = client.execute(query, Map.of("dates", dates));
