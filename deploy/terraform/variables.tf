@@ -29,7 +29,12 @@ variable "environment" {
 variable "target_people" {
   description = "How many people the environment should have. A run creates the shortfall and nothing if already met. Counted against the TOTAL number of people - Person exposes no Cognito linkage through the GraphQL API, so this tool cannot distinguish demo people from real signed-up ones (see the design)."
   type        = number
-  default     = 40
+  # Raised from 40 as part of designs/realistic-demo-meeting-schedule.md - see that design's
+  # "Technical considerations". This Terraform default, not DemoData.Targets' own intEnv fallback,
+  # is what actually governs a deployed environment: the environment block below always sets
+  # TARGET_PEOPLE explicitly, so the Java-level default only matters for an ad hoc invoke with no
+  # deployed Lambda config at all.
+  default = 100
 }
 
 variable "target_rooms" {
