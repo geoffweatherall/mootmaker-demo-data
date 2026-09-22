@@ -22,7 +22,9 @@ just restate the implementation and break on every tuning change. What matters i
 
 - every business day in the window has at least one meeting, and no meeting falls on a weekend;
 - no room is double-booked;
-- nobody is in two overlapping meetings;
+- no organiser is ever double-booked, as organiser or attendee; an attendee may be invited into up
+  to 2 simultaneous overlapping meetings, but never more (see
+  [mootmaker/designs/realistic-demo-meeting-schedule.md](https://github.com/geoffweatherall/mootmaker/blob/main/designs/realistic-demo-meeting-schedule.md));
 - nothing falls outside business hours (08:00–17:00);
 - no meeting exceeds its room's capacity, and every meeting has an organiser and an attendee;
 - the people and room targets are met exactly, not exceeded.

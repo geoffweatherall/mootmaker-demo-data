@@ -86,7 +86,12 @@ final class DemoData {
      */
     static Targets from(final UnaryOperator<String> env) {
       return new Targets(
-          intEnv(env, "TARGET_PEOPLE", 40),
+          // Raised from 40 as part of designs/realistic-demo-meeting-schedule.md: denser,
+          // bimodal room occupancy needs a larger free-people pool, and organisers (who must be
+          // fully free, unlike attendees) are the tighter constraint post-relaxation. Starting
+          // point, tuned against real generated stats - see that design's "Technical
+          // considerations".
+          intEnv(env, "TARGET_PEOPLE", 100),
           intEnv(env, "TARGET_ROOMS", 10),
           intEnv(env, "DAYS_IN_PAST", 7),
           intEnv(env, "WEEKS_AHEAD", 6));

@@ -4,25 +4,27 @@ import module java.base;
 
 /**
  * Pure scheduling logic (no network calls) for generating a realistic-looking set of meetings
- * across a set of rooms for a specific list of business days. Meetings are scheduled sequentially
- * within each room (so a room is never double-booked), but different rooms are scheduled
- * independently, so meetings in different rooms may legitimately overlap in time - except that no
- * person (organiser or attendee) is ever placed into two overlapping meetings, tracked via a shared
- * busy-interval map across every room and day.
+ * across a set of rooms for a specific list of business days.
+ *
+ * <p>Each room is scheduled independently against a shared, bimodal time-of-day density (busy from
+ * 09:00, quiet over lunch, busy again after lunch tailing off toward 17:00) rather than a flat
+ * random start - see {@link #densityWeight}. Each room also has a fixed "reputation" - a target
+ * occupancy tier derived deterministically from its id (see {@link #tierFor}) - so some rooms stay
+ * consistently in higher demand than others across the whole generated calendar, not just on
+ * whichever day happens to roll a high number.
+ *
+ * <p>Rooms are scheduled independently, so meetings in different rooms may legitimately overlap in
+ * time. Person conflicts are modelled the way real calendars work rather than as a blanket "nobody
+ * double-booked, ever" rule: an <b>organiser</b> is never double-booked, as organiser or attendee,
+ * at an overlapping time - running two meetings at once isn't something an RSVP can resolve. An
+ * <b>attendee</b> can be invited into up to {@link #MAX_CONCURRENT_ATTENDEE_INVITES} overlapping
+ * meetings, since a real conflicting invite gets resolved via RSVP rather than never existing in
+ * the first place - see {@link #resolveAttendeeStatuses} for how those invites' statuses get
+ * assigned.
  *
  * <p>Takes an explicit {@code List<LocalDate>} of days to generate for, rather than a contiguous
  * day-offset range: {@link DemoData} has already worked out exactly which business days are empty
- * and need topping up, and those need not be contiguous (e.g. a single empty weekday sandwiched
- * between two already-populated ones). This class used to exist twice - once per tool - and the two
- * copies had already drifted 53 lines apart on exactly this point, the generator's copy taking a
- * contiguous range. The merge deleted that fork; the general form here absorbs the specific one,
- * since "every business day in the window" is just a list the caller computes.
- *
- * <p>A few extra touches keep the generated data looking like a real calendar rather than a packed
- * schedule: each room's first meeting of the day starts at a random point in the day (not always
- * 08:00), a person is, more often than not, given a real gap before their next meeting rather than
- * being booked back-to-back, and meetings vary between small catch-ups and room-filling sessions
- * that use at least half the room's capacity.
+ * and need topping up, and those need not be contiguous.
  */
 final class MeetingScheduler {
 
@@ -34,27 +36,22 @@ final class MeetingScheduler {
   private static final int BUSINESS_DAY_MINUTES =
       (BUSINESS_DAY_END_HOUR - BUSINESS_DAY_START_HOUR) * 60;
 
-  /** Cap on how many sequential meetings a single room can get in one day. */
-  private static final int MAX_MEETINGS_PER_ROOM_PER_DAY = 2;
-
   /**
-   * Chance to stop scheduling a room's day after its first meeting, so room-days vary between 1 and
-   * 2 meetings.
+   * Safety valve on how many meetings a single room can get in one day. Not a target - the
+   * candidate-slot pool (see {@link #generateForRoomDay}) naturally bounds this well below the
+   * theoretical 36 (every 15-minute slot in the business day) - but a cap keeps a pathological case
+   * (a room's occupancy target reached via a run of very short meetings) from looking absurd.
    */
-  private static final double CHANCE_TO_STOP_AFTER_FIRST_MEETING = 0.5;
+  private static final int MAX_MEETINGS_PER_ROOM_PER_DAY = 10;
 
-  /**
-   * Step used both to search for a later start time when people are contended, and to pick a
-   * room-day's random starting point. A multiple of 15 keeps every candidate start on the API's
-   * required 15-minute boundary.
-   */
+  /** Step used to align every candidate start time, matching the API's 15-minute boundary rule. */
   private static final int RETRY_STEP_MINUTES = 15;
 
   /**
    * Chance that a participant is given a real gap before they can be booked into another meeting,
-   * rather than being immediately available the instant this meeting ends. Comfortably above the
-   * "at least half" target since some participants who don't get an artificial gap still end up
-   * with one anyway (the next room to look for them may not do so immediately).
+   * rather than being immediately available the instant this meeting ends. A per-person
+   * availability construct only - it affects when that person can next be booked, not when a room's
+   * own next meeting can start.
    */
   private static final double GAP_AFTER_MEETING_PROBABILITY = 0.65;
 
@@ -65,27 +62,32 @@ final class MeetingScheduler {
   private static final int MIN_PARTICIPANTS = 2;
 
   /**
-   * Chance that a meeting is deliberately sized to use at least half the room's capacity, rather
-   * than being a small catch-up. Comfortably above the "at least half of all meetings" target since
-   * a meeting occasionally can't reach that size if too few people are free right now (it's simply
-   * capped to however many are available, rather than dropped or delayed).
+   * How many overlapping meetings a single attendee can be invited into at once. An organiser is
+   * never part of this - see the class doc comment - so this only ever bounds attendee invites.
    */
-  private static final double LARGE_MEETING_PROBABILITY = 0.65;
+  private static final int MAX_CONCURRENT_ATTENDEE_INVITES = 2;
 
   /**
-   * Weighted attendee-count outcomes for a small (non room-filling) meeting, before capping to what
-   * the free-people pool allows: one attendee besides the organiser is the most common case,
-   * tapering off from there. Keeping most small meetings this size leaves more people free at any
-   * given moment, which is what makes it possible to also give most people real gaps between
-   * meetings and still staff the occasional large meeting.
+   * Chance that a meeting is deliberately sized near a room's full capacity, for visual UI testing
+   * with a realistic "room nearly full" case, rather than a small/medium catch-up.
+   */
+  private static final double NEAR_CAPACITY_MEETING_PROBABILITY = 0.20;
+
+  /** A near-capacity meeting uses at least this fraction of the room's capacity. */
+  private static final double NEAR_CAPACITY_MINIMUM_FRACTION = 0.8;
+
+  /**
+   * Weighted attendee-count outcomes for a small/medium (non near-capacity) meeting, before capping
+   * to what the free-people pool allows: one attendee besides the organiser is the most common
+   * case, tapering off from there.
    */
   private static final double[] SMALL_MEETING_ATTENDEE_COUNT_CUMULATIVE_WEIGHTS = {0.55, 0.85, 1.0};
 
   /**
    * Per Geoff's explicit mix (designs/attendee-response-status.md): roughly 60% {@code Going}, the
-   * remaining ~40% split randomly and roughly evenly across {@code NotGoing}/{@code Maybe}/ {@code
-   * NoResponse}. Cumulative weights over that same ordering, matching the pattern above. The
-   * organiser is never in this pool - it only ever assigns a status to attendees.
+   * remaining ~40% split randomly and roughly evenly across {@code NotGoing}/{@code Maybe}/{@code
+   * NoResponse}. Applies to every attendee invite that isn't part of a genuinely overlapping pair -
+   * see {@link #resolveAttendeeStatuses}.
    */
   private static final double[] ATTENDEE_STATUS_CUMULATIVE_WEIGHTS = {
     0.60, 0.60 + (0.40 / 3), 0.60 + (0.40 / 3) * 2, 1.0
@@ -93,6 +95,61 @@ final class MeetingScheduler {
 
   private static final List<String> ATTENDEE_STATUS_OPTIONS =
       List.of("Going", "NotGoing", "Maybe", "NoResponse");
+
+  /** The three non-Going statuses, equally weighted - see {@link #resolveAttendeeStatuses}. */
+  private static final List<String> NON_GOING_STATUS_OPTIONS =
+      List.of("NotGoing", "Maybe", "NoResponse");
+
+  /**
+   * Chance that a genuinely overlapping pair (or chain) of a person's attendee invites resolves the
+   * way a real calendar mostly does: exactly one {@code Going}, the rest not. The remaining share
+   * is the deliberate "over-promised, double-booked, failed to meet an expectation" mistake,
+   * modelled as every invite in the conflict resolving to {@code Going} - see
+   * designs/realistic-demo-meeting- schedule.md's "Trade-offs and decisions" #1.
+   */
+  private static final double RESOLVED_CORRECTLY_PROBABILITY = 0.95;
+
+  /**
+   * Time-of-day density control points as (hour-of-day, relative weight), linearly interpolated
+   * between - see {@link #densityWeight}. Two peaks (~10:00 and ~14:00), a non-zero floor through
+   * lunch (~12:30, about 8% of peak - a small chance of a lunch meeting rather than a hard cutoff),
+   * light at the very start and end of the business day.
+   */
+  private static final double[][] DENSITY_CONTROL_POINTS_HOUR_WEIGHT = {
+    {8.0, 0.15},
+    {9.0, 0.55},
+    {10.0, 1.0},
+    {10.5, 1.0},
+    {11.5, 0.55},
+    {12.0, 0.2},
+    {12.5, 0.08},
+    {13.0, 0.2},
+    {13.5, 0.55},
+    {14.0, 0.95},
+    {14.5, 1.0},
+    {15.5, 0.55},
+    {16.0, 0.25},
+    {17.0, 0.05},
+  };
+
+  /**
+   * A room's fixed "reputation" - how much of the business day it targets being occupied, on a
+   * given day. Assigned deterministically per room (see {@link #tierFor}), not re-rolled daily, so
+   * certain rooms stay consistently busier than others across the whole generated calendar.
+   */
+  private enum RoomTier {
+    HIGH_DEMAND(0.55, 0.60),
+    TYPICAL(0.25, 0.35),
+    QUIET(0.10, 0.15);
+
+    final double minOccupancyFraction;
+    final double maxOccupancyFraction;
+
+    RoomTier(final double minOccupancyFraction, final double maxOccupancyFraction) {
+      this.minOccupancyFraction = minOccupancyFraction;
+      this.maxOccupancyFraction = maxOccupancyFraction;
+    }
+  }
 
   record RoomInfo(String id, int capacity) {}
 
@@ -102,6 +159,15 @@ final class MeetingScheduler {
       String organiserId,
       List<String> attendeeIds,
       List<String> attendeeStatuses,
+      LocalDateTime startTime,
+      LocalDateTime endTime) {}
+
+  /** A placed meeting before RSVP statuses are resolved - see {@link #resolveAttendeeStatuses}. */
+  private record PlacedMeeting(
+      String roomId,
+      String subject,
+      String organiserId,
+      List<String> attendeeIds,
       LocalDateTime startTime,
       LocalDateTime endTime) {}
 
@@ -119,138 +185,278 @@ final class MeetingScheduler {
 
   /**
    * Generates meetings for every room, for every day in {@code targetDays} (assumed already
-   * filtered to weekdays with no existing meetings - this method doesn't check either). Each room
-   * gets 0-2 sequential, non-overlapping meetings per day (fewer if the day's random starting point
-   * leaves little business-hours time, or people are scarce). Every meeting has an organiser plus
-   * at least one attendee, sized so the room's capacity is never exceeded; at least half of all
-   * meetings use at least half the room's capacity, the rest are small catch-ups. Every participant
-   * (organiser or attendee) is only ever in one meeting at a time across the whole generated batch,
-   * regardless of room or day.
+   * filtered to weekdays with no existing meetings - this method doesn't check either).
+   *
+   * <p>Placement is structural first (which room, which time, who), then a separate pass resolves
+   * every attendee invite's RSVP status (see {@link #resolveAttendeeStatuses}) - the first meeting
+   * of a genuinely overlapping pair is placed before its overlap partner exists, so status can't be
+   * decided inline the way organiser/attendee selection can.
    */
   static List<GeneratedMeeting> generate(
       final List<RoomInfo> rooms,
       final List<String> personIds,
       final List<LocalDate> targetDays,
       final Random random) {
-    final List<GeneratedMeeting> meetings = new ArrayList<>();
-    final Map<String, List<Interval>> busyByPerson = new HashMap<>();
+    final List<PlacedMeeting> placed = new ArrayList<>();
+    final Map<String, List<Interval>> organiserBusyByPerson = new HashMap<>();
+    final Map<String, List<Interval>> attendeeBusyByPerson = new HashMap<>();
 
     for (final LocalDate day : targetDays) {
       for (final RoomInfo room : rooms) {
-        meetings.addAll(generateForRoomDay(room, day, personIds, busyByPerson, random));
+        placed.addAll(
+            generateForRoomDay(
+                room, day, personIds, organiserBusyByPerson, attendeeBusyByPerson, random));
       }
     }
-    return meetings;
+    return resolveAttendeeStatuses(placed, random);
   }
 
-  private static List<GeneratedMeeting> generateForRoomDay(
+  /**
+   * A room's fixed occupancy tier, derived deterministically from its id via {@code
+   * String.hashCode()} - specified and stable by the String contract (unlike {@code
+   * Object.hashCode()}), so the same room always lands in the same tier across runs. Roughly 20% of
+   * rooms are {@code HIGH_DEMAND}, 50% {@code TYPICAL}, 30% {@code QUIET}.
+   */
+  private static RoomTier tierFor(final String roomId) {
+    final int bucket = Math.floorMod(roomId.hashCode(), 100);
+    if (bucket < 20) {
+      return RoomTier.HIGH_DEMAND;
+    }
+    if (bucket < 70) {
+      return RoomTier.TYPICAL;
+    }
+    return RoomTier.QUIET;
+  }
+
+  /**
+   * Fills one room's one day: repeatedly draws a candidate start time from the remaining pool of
+   * 15-minute-aligned slots, weighted by {@link #densityWeight}, and places a meeting there if the
+   * room isn't already booked over that time and enough people are available; keeps going until the
+   * day's occupancy target (from the room's tier, see {@link #tierFor}) is met, the safety cap is
+   * hit, or the candidate pool is exhausted. A failed candidate is dropped from the pool so it is
+   * never retried; a successful placement also drops every slot the new meeting now overlaps, so
+   * the room is never double-booked against itself.
+   */
+  private static List<PlacedMeeting> generateForRoomDay(
       final RoomInfo room,
       final LocalDate day,
       final List<String> personIds,
-      final Map<String, List<Interval>> busyByPerson,
+      final Map<String, List<Interval>> organiserBusyByPerson,
+      final Map<String, List<Interval>> attendeeBusyByPerson,
       final Random random) {
-    final List<GeneratedMeeting> roomDayMeetings = new ArrayList<>();
+    final List<PlacedMeeting> roomDayMeetings = new ArrayList<>();
+    final LocalDateTime dayStart = day.atTime(BUSINESS_DAY_START_HOUR, 0);
     final LocalDateTime dayEnd = day.atTime(BUSINESS_DAY_END_HOUR, 0);
-    LocalDateTime searchFrom = randomStartOfDay(day, random);
 
-    for (int meetingIndex = 0; meetingIndex < MAX_MEETINGS_PER_ROOM_PER_DAY; meetingIndex++) {
-      if (meetingIndex > 0 && random.nextDouble() < CHANCE_TO_STOP_AFTER_FIRST_MEETING) {
-        break;
-      }
+    final RoomTier tier = tierFor(room.id());
+    final double occupancyFraction =
+        tier.minOccupancyFraction
+            + random.nextDouble() * (tier.maxOccupancyFraction - tier.minOccupancyFraction);
+    final long targetOccupiedMinutes = Math.round(BUSINESS_DAY_MINUTES * occupancyFraction);
 
-      final GeneratedMeeting meeting =
-          findAndPlaceMeeting(room, dayEnd, searchFrom, personIds, busyByPerson, random);
+    final List<LocalDateTime> candidatePool = new ArrayList<>();
+    for (int step = 0; step * RETRY_STEP_MINUTES < BUSINESS_DAY_MINUTES; step++) {
+      candidatePool.add(dayStart.plusMinutes((long) step * RETRY_STEP_MINUTES));
+    }
+
+    long occupiedMinutes = 0;
+    while (!candidatePool.isEmpty()
+        && occupiedMinutes < targetOccupiedMinutes
+        && roomDayMeetings.size() < MAX_MEETINGS_PER_ROOM_PER_DAY) {
+      final LocalDateTime candidateStart = drawWeightedCandidate(candidatePool, random);
+
+      final PlacedMeeting meeting =
+          tryPlaceMeeting(
+              room,
+              candidateStart,
+              dayEnd,
+              roomDayMeetings,
+              personIds,
+              organiserBusyByPerson,
+              attendeeBusyByPerson,
+              random);
+
       if (meeting == null) {
-        break;
+        candidatePool.remove(candidateStart);
+        continue;
       }
       roomDayMeetings.add(meeting);
-      searchFrom = meeting.endTime();
+      occupiedMinutes += Duration.between(meeting.startTime(), meeting.endTime()).toMinutes();
+      candidatePool.removeIf(
+          slot -> {
+            final LocalDateTime slotEnd = slot.plusMinutes(RETRY_STEP_MINUTES);
+            return meeting.startTime().isBefore(slotEnd) && slot.isBefore(meeting.endTime());
+          });
     }
     return roomDayMeetings;
   }
 
   /**
-   * Picks a random point within the business day to start looking for this room's first meeting, so
-   * rooms' meetings don't all cluster at 08:00 - some rooms will end up starting (and finishing)
-   * their day late, or not being used at all, which is realistic.
+   * Picks one candidate from the pool, weighted by {@link #densityWeight} - standard weighted
+   * sampling by cumulative weight, not rejection sampling, since the pool is small (at most 36
+   * entries) and shrinks as slots are consumed or ruled out.
    */
-  private static LocalDateTime randomStartOfDay(final LocalDate day, final Random random) {
-    final int offsetSteps = random.nextInt(BUSINESS_DAY_MINUTES / RETRY_STEP_MINUTES);
-    return day.atTime(BUSINESS_DAY_START_HOUR, 0)
-        .plusMinutes((long) offsetSteps * RETRY_STEP_MINUTES);
+  private static LocalDateTime drawWeightedCandidate(
+      final List<LocalDateTime> pool, final Random random) {
+    final double[] weights = new double[pool.size()];
+    double totalWeight = 0;
+    for (int i = 0; i < pool.size(); i++) {
+      weights[i] = densityWeight(pool.get(i));
+      totalWeight += weights[i];
+    }
+    double roll = random.nextDouble() * totalWeight;
+    for (int i = 0; i < pool.size(); i++) {
+      roll -= weights[i];
+      if (roll < 0) {
+        return pool.get(i);
+      }
+    }
+    return pool.getLast();
+  }
+
+  /** Linear interpolation over {@link #DENSITY_CONTROL_POINTS_HOUR_WEIGHT}. */
+  private static double densityWeight(final LocalDateTime time) {
+    final double hour = time.getHour() + time.getMinute() / 60.0;
+    final double[][] points = DENSITY_CONTROL_POINTS_HOUR_WEIGHT;
+    if (hour <= points[0][0]) {
+      return points[0][1];
+    }
+    for (int i = 1; i < points.length; i++) {
+      if (hour <= points[i][0]) {
+        final double x0 = points[i - 1][0];
+        final double y0 = points[i - 1][1];
+        final double x1 = points[i][0];
+        final double y1 = points[i][1];
+        final double t = (hour - x0) / (x1 - x0);
+        return y0 + t * (y1 - y0);
+      }
+    }
+    return points[points.length - 1][1];
   }
 
   /**
-   * Searches forward from {@code searchFrom}, in {@link #RETRY_STEP_MINUTES} steps, for the first
-   * time at which both business-hours time remains for some meeting duration AND at least {@link
-   * #MIN_PARTICIPANTS} people are free.
+   * Attempts to place one meeting starting at {@code candidateStart}: picks a duration that fits
+   * before {@code dayEnd} and doesn't overlap this room's already-placed meetings today, then
+   * checks enough people are available under the relaxed conflict rule (see the class doc comment).
+   * Returns {@code null} if no duration works, either on the room or on people.
    */
-  private static GeneratedMeeting findAndPlaceMeeting(
+  private static PlacedMeeting tryPlaceMeeting(
       final RoomInfo room,
+      final LocalDateTime candidateStart,
       final LocalDateTime dayEnd,
-      final LocalDateTime searchFrom,
+      final List<PlacedMeeting> roomDayMeetings,
       final List<String> personIds,
-      final Map<String, List<Interval>> busyByPerson,
+      final Map<String, List<Interval>> organiserBusyByPerson,
+      final Map<String, List<Interval>> attendeeBusyByPerson,
       final Random random) {
-    for (LocalDateTime candidateStart = searchFrom;
-        candidateStart.isBefore(dayEnd);
-        candidateStart = candidateStart.plusMinutes(RETRY_STEP_MINUTES)) {
-      final LocalDateTime startTime = candidateStart;
-      final List<Integer> feasibleDurations =
-          DURATION_MINUTES_OPTIONS.stream()
-              .filter(minutes -> !startTime.plusMinutes(minutes).isAfter(dayEnd))
-              .toList();
-      if (feasibleDurations.isEmpty()) {
-        return null;
+    final List<Integer> feasibleDurations = new ArrayList<>(DURATION_MINUTES_OPTIONS);
+    Collections.shuffle(feasibleDurations, random);
+
+    for (final int durationMinutes : feasibleDurations) {
+      final LocalDateTime endTime = candidateStart.plusMinutes(durationMinutes);
+      if (endTime.isAfter(dayEnd)) {
+        continue;
       }
-
-      final int durationMinutes = feasibleDurations.get(random.nextInt(feasibleDurations.size()));
-      final LocalDateTime endTime = startTime.plusMinutes(durationMinutes);
-
-      final List<String> freePeople = new ArrayList<>(personIds);
-      Collections.shuffle(freePeople, random);
-      freePeople.removeIf(personId -> isBusy(busyByPerson, personId, startTime, endTime));
-
-      // Need at least an organiser plus one attendee; if too contended right now, try later.
-      if (freePeople.size() < MIN_PARTICIPANTS) {
+      final boolean overlapsRoom =
+          roomDayMeetings.stream()
+              .anyMatch(
+                  existing ->
+                      candidateStart.isBefore(existing.endTime())
+                          && existing.startTime().isBefore(endTime));
+      if (overlapsRoom) {
         continue;
       }
 
-      final boolean scheduleAsLargeMeeting = random.nextDouble() < LARGE_MEETING_PROBABILITY;
-      // At least MIN_PARTICIPANTS even when "half capacity" rounds down below it (e.g. a
-      // capacity-2 room's half is 1, which alone wouldn't leave room for an attendee).
-      final int desiredParticipants =
-          Math.max(
-              MIN_PARTICIPANTS,
-              scheduleAsLargeMeeting
-                  ? (int) Math.ceil(room.capacity() / 2.0)
-                  : 1 + pickSmallMeetingAttendeeCount(random));
-      // Capped to whatever the room and the free-people pool actually allow, but never below
-      // the organiser-plus-one-attendee floor already guaranteed by the check above.
-      final int totalParticipants =
-          Math.min(desiredParticipants, Math.min(room.capacity(), freePeople.size()));
-      final int attendeeCount = totalParticipants - 1;
-
-      final String organiserId = freePeople.getFirst();
-      final List<String> attendeeIds = List.copyOf(freePeople.subList(1, 1 + attendeeCount));
-      final List<String> attendeeStatuses =
-          attendeeIds.stream().map(_ -> pickAttendeeStatus(random)).toList();
-
-      markBusyWithOptionalGap(busyByPerson, organiserId, startTime, endTime, random);
-      for (final String attendeeId : attendeeIds) {
-        markBusyWithOptionalGap(busyByPerson, attendeeId, startTime, endTime, random);
+      final PlacedMeeting meeting =
+          tryAssignParticipants(
+              room,
+              candidateStart,
+              endTime,
+              personIds,
+              organiserBusyByPerson,
+              attendeeBusyByPerson,
+              random);
+      if (meeting != null) {
+        return meeting;
       }
-
-      final String subject =
-          SampleData.MEETING_SUBJECTS.get(random.nextInt(SampleData.MEETING_SUBJECTS.size()));
-      return new GeneratedMeeting(
-          room.id(), subject, organiserId, attendeeIds, attendeeStatuses, startTime, endTime);
     }
     return null;
   }
 
   /**
-   * Rolls a weighted attendee count for a small meeting (see {@link
+   * Given a room and a fixed [start, end) already cleared of room-self-overlap, tries to find an
+   * organiser and enough attendees. The organiser must be free of every other booking, as organiser
+   * or attendee (see the class doc comment); attendees only need to be free of any organiser
+   * booking, and under {@link #MAX_CONCURRENT_ATTENDEE_INVITES} concurrent attendee bookings of
+   * their own.
+   */
+  private static PlacedMeeting tryAssignParticipants(
+      final RoomInfo room,
+      final LocalDateTime startTime,
+      final LocalDateTime endTime,
+      final List<String> personIds,
+      final Map<String, List<Interval>> organiserBusyByPerson,
+      final Map<String, List<Interval>> attendeeBusyByPerson,
+      final Random random) {
+    final List<String> organiserCandidates = new ArrayList<>(personIds);
+    Collections.shuffle(organiserCandidates, random);
+    organiserCandidates.removeIf(
+        personId ->
+            isBusy(organiserBusyByPerson, personId, startTime, endTime)
+                || isBusy(attendeeBusyByPerson, personId, startTime, endTime));
+    if (organiserCandidates.isEmpty()) {
+      return null;
+    }
+    final String organiserId = organiserCandidates.getFirst();
+
+    final List<String> attendeeCandidates = new ArrayList<>(personIds);
+    attendeeCandidates.remove(organiserId);
+    Collections.shuffle(attendeeCandidates, random);
+    attendeeCandidates.removeIf(
+        personId ->
+            isBusy(organiserBusyByPerson, personId, startTime, endTime)
+                || overlapCount(attendeeBusyByPerson, personId, startTime, endTime)
+                    >= MAX_CONCURRENT_ATTENDEE_INVITES);
+    if (attendeeCandidates.isEmpty()) {
+      return null;
+    }
+
+    final boolean scheduleNearCapacity = random.nextDouble() < NEAR_CAPACITY_MEETING_PROBABILITY;
+    final int desiredParticipants =
+        scheduleNearCapacity
+            ? nearCapacityParticipantCount(room.capacity(), random)
+            : Math.max(MIN_PARTICIPANTS, 1 + pickSmallMeetingAttendeeCount(random));
+    final int totalParticipants =
+        Math.min(desiredParticipants, Math.min(room.capacity(), attendeeCandidates.size() + 1));
+    final int attendeeCount = totalParticipants - 1;
+
+    final List<String> attendeeIds = List.copyOf(attendeeCandidates.subList(0, attendeeCount));
+
+    markBusyWithOptionalGap(organiserBusyByPerson, organiserId, startTime, endTime, random);
+    for (final String attendeeId : attendeeIds) {
+      markBusyWithOptionalGap(attendeeBusyByPerson, attendeeId, startTime, endTime, random);
+    }
+
+    final String subject =
+        SampleData.MEETING_SUBJECTS.get(random.nextInt(SampleData.MEETING_SUBJECTS.size()));
+    return new PlacedMeeting(room.id(), subject, organiserId, attendeeIds, startTime, endTime);
+  }
+
+  /**
+   * A near-capacity meeting's total headcount: a random value between {@link
+   * #NEAR_CAPACITY_MINIMUM_FRACTION} of the room's capacity and full capacity, inclusive.
+   */
+  private static int nearCapacityParticipantCount(final int capacity, final Random random) {
+    final int low =
+        Math.max(MIN_PARTICIPANTS, (int) Math.ceil(capacity * NEAR_CAPACITY_MINIMUM_FRACTION));
+    if (low >= capacity) {
+      return capacity;
+    }
+    return low + random.nextInt(capacity - low + 1);
+  }
+
+  /**
+   * Rolls a weighted attendee count for a small/medium meeting (see {@link
    * #SMALL_MEETING_ATTENDEE_COUNT_CUMULATIVE_WEIGHTS}); always at least 1.
    */
   private static int pickSmallMeetingAttendeeCount(final Random random) {
@@ -263,20 +469,6 @@ final class MeetingScheduler {
     return SMALL_MEETING_ATTENDEE_COUNT_CUMULATIVE_WEIGHTS.length;
   }
 
-  /**
-   * Rolls a weighted attendee status (see {@link #ATTENDEE_STATUS_CUMULATIVE_WEIGHTS}) - roughly
-   * 60% {@code Going}, the rest split evenly across the other three.
-   */
-  private static String pickAttendeeStatus(final Random random) {
-    final double roll = random.nextDouble();
-    for (int i = 0; i < ATTENDEE_STATUS_CUMULATIVE_WEIGHTS.length; i++) {
-      if (roll < ATTENDEE_STATUS_CUMULATIVE_WEIGHTS[i]) {
-        return ATTENDEE_STATUS_OPTIONS.get(i);
-      }
-    }
-    return ATTENDEE_STATUS_OPTIONS.getLast();
-  }
-
   private static boolean isBusy(
       final Map<String, List<Interval>> busyByPerson,
       final String personId,
@@ -284,6 +476,16 @@ final class MeetingScheduler {
       final LocalDateTime end) {
     return busyByPerson.getOrDefault(personId, List.of()).stream()
         .anyMatch(interval -> interval.overlaps(start, end));
+  }
+
+  private static long overlapCount(
+      final Map<String, List<Interval>> busyByPerson,
+      final String personId,
+      final LocalDateTime start,
+      final LocalDateTime end) {
+    return busyByPerson.getOrDefault(personId, List.of()).stream()
+        .filter(interval -> interval.overlaps(start, end))
+        .count();
   }
 
   /**
@@ -306,5 +508,138 @@ final class MeetingScheduler {
     busyByPerson
         .computeIfAbsent(personId, key -> new ArrayList<>())
         .add(new Interval(start, busyUntil));
+  }
+
+  /**
+   * Resolves every attendee invite's RSVP status and produces the final {@link GeneratedMeeting}
+   * list. For each person, their attendee invites are grouped into connected components by time
+   * overlap (a standard sweep: sort by start, extend the current group while the next invite starts
+   * before the group's running max end - this correctly captures a transitive chain, not just
+   * directly-overlapping pairs). A component of size 1 draws independently from the usual mix (see
+   * {@link #ATTENDEE_STATUS_CUMULATIVE_WEIGHTS}); a component of size 2 or more - only possible
+   * because of the relaxed attendee-conflict rule - resolves via {@link
+   * #RESOLVED_CORRECTLY_PROBABILITY}: most of the time exactly one invite in the group is {@code
+   * Going} and the rest are drawn from the other three statuses, the rest of the time every invite
+   * in the group is {@code Going} (the deliberate over-commitment mistake).
+   */
+  private static List<GeneratedMeeting> resolveAttendeeStatuses(
+      final List<PlacedMeeting> placed, final Random random) {
+    final Map<String, List<Integer>> attendeeInvitesByPerson = new HashMap<>();
+    for (int i = 0; i < placed.size(); i++) {
+      for (final String attendeeId : placed.get(i).attendeeIds()) {
+        attendeeInvitesByPerson.computeIfAbsent(attendeeId, key -> new ArrayList<>()).add(i);
+      }
+    }
+
+    final Map<Integer, Map<String, String>> statusByMeetingAndPerson = new HashMap<>();
+    for (final Map.Entry<String, List<Integer>> entry : attendeeInvitesByPerson.entrySet()) {
+      final String personId = entry.getKey();
+      for (final List<Integer> cluster : overlapClusters(entry.getValue(), placed)) {
+        assignClusterStatuses(cluster, personId, statusByMeetingAndPerson, random);
+      }
+    }
+
+    final List<GeneratedMeeting> meetings = new ArrayList<>(placed.size());
+    for (int i = 0; i < placed.size(); i++) {
+      final PlacedMeeting meeting = placed.get(i);
+      final Map<String, String> statusByPerson = statusByMeetingAndPerson.getOrDefault(i, Map.of());
+      final List<String> attendeeStatuses =
+          meeting.attendeeIds().stream().map(statusByPerson::get).toList();
+      meetings.add(
+          new GeneratedMeeting(
+              meeting.roomId(),
+              meeting.subject(),
+              meeting.organiserId(),
+              meeting.attendeeIds(),
+              attendeeStatuses,
+              meeting.startTime(),
+              meeting.endTime()));
+    }
+    return meetings;
+  }
+
+  /**
+   * Groups one person's attendee-invite indices into overlap-connected components, sorted by start
+   * time. See {@link #resolveAttendeeStatuses} for why a connected component, not just pairs.
+   */
+  private static List<List<Integer>> overlapClusters(
+      final List<Integer> meetingIndices, final List<PlacedMeeting> placed) {
+    final List<Integer> sorted =
+        meetingIndices.stream()
+            .sorted(Comparator.comparing(i -> placed.get(i).startTime()))
+            .toList();
+
+    final List<List<Integer>> clusters = new ArrayList<>();
+    List<Integer> current = new ArrayList<>();
+    LocalDateTime currentMaxEnd = null;
+    for (final int index : sorted) {
+      final LocalDateTime start = placed.get(index).startTime();
+      final LocalDateTime end = placed.get(index).endTime();
+      if (current.isEmpty() || start.isBefore(currentMaxEnd)) {
+        current.add(index);
+        currentMaxEnd = currentMaxEnd == null || end.isAfter(currentMaxEnd) ? end : currentMaxEnd;
+      } else {
+        clusters.add(current);
+        current = new ArrayList<>(List.of(index));
+        currentMaxEnd = end;
+      }
+    }
+    if (!current.isEmpty()) {
+      clusters.add(current);
+    }
+    return clusters;
+  }
+
+  private static void assignClusterStatuses(
+      final List<Integer> cluster,
+      final String personId,
+      final Map<Integer, Map<String, String>> statusByMeetingAndPerson,
+      final Random random) {
+    if (cluster.size() == 1) {
+      putStatus(statusByMeetingAndPerson, cluster.getFirst(), personId, pickAttendeeStatus(random));
+      return;
+    }
+
+    if (random.nextDouble() < RESOLVED_CORRECTLY_PROBABILITY) {
+      final int goingIndex = cluster.get(random.nextInt(cluster.size()));
+      for (final int meetingIndex : cluster) {
+        final String status = meetingIndex == goingIndex ? "Going" : pickNonGoingStatus(random);
+        putStatus(statusByMeetingAndPerson, meetingIndex, personId, status);
+      }
+    } else {
+      for (final int meetingIndex : cluster) {
+        putStatus(statusByMeetingAndPerson, meetingIndex, personId, "Going");
+      }
+    }
+  }
+
+  private static void putStatus(
+      final Map<Integer, Map<String, String>> statusByMeetingAndPerson,
+      final int meetingIndex,
+      final String personId,
+      final String status) {
+    statusByMeetingAndPerson
+        .computeIfAbsent(meetingIndex, key -> new HashMap<>())
+        .put(personId, status);
+  }
+
+  /**
+   * Rolls a weighted attendee status (see {@link #ATTENDEE_STATUS_CUMULATIVE_WEIGHTS}) - roughly
+   * 60% {@code Going}, the rest split evenly across the other three. Used only for an invite that
+   * isn't part of a genuinely overlapping pair - see {@link #resolveAttendeeStatuses}.
+   */
+  private static String pickAttendeeStatus(final Random random) {
+    final double roll = random.nextDouble();
+    for (int i = 0; i < ATTENDEE_STATUS_CUMULATIVE_WEIGHTS.length; i++) {
+      if (roll < ATTENDEE_STATUS_CUMULATIVE_WEIGHTS[i]) {
+        return ATTENDEE_STATUS_OPTIONS.get(i);
+      }
+    }
+    return ATTENDEE_STATUS_OPTIONS.getLast();
+  }
+
+  /** Uniformly picks one of the three non-Going statuses - see {@link #resolveAttendeeStatuses}. */
+  private static String pickNonGoingStatus(final Random random) {
+    return NON_GOING_STATUS_OPTIONS.get(random.nextInt(NON_GOING_STATUS_OPTIONS.size()));
   }
 }
