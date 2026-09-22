@@ -25,7 +25,7 @@ Four independent concerns, each of which does nothing once its target is already
 
 | Concern | Target | What makes it repeatable |
 |---|---|---|
-| People | `TARGET_PEOPLE` (default 40) | Creates the shortfall only |
+| People | `TARGET_PEOPLE` (default 100) | Creates the shortfall only |
 | Rooms | `TARGET_ROOMS` (default 10) | Creates the shortfall only, never reusing an existing room's name |
 | Meetings | every weekday from `DAYS_IN_PAST` (default 7) behind today to `WEEKS_AHEAD` (default 6) ahead | Skips any day that already has a meeting |
 | Guaranteed meetings | every weekday in the same window, for each person in `/mootmaker/<env>/demo-data/guaranteed-person-ids` | Skips any day the person already organises or attends |
@@ -39,9 +39,10 @@ nothing.
 
 The list is written by `mootmaker-api`'s Terraform (`demo-data-credentials.tf`) and holds the demo
 user's Person id. It is **optional**: an environment whose `mootmaker-api` predates the parameter
-reads an empty list and behaves exactly as before. Each guaranteed meeting is placed in a room with
-no bookings at all that day, so it cannot collide with existing data — if every room is busy at some
-point, the day is skipped with a message rather than risking `TimeRangeUnavailable`.
+reads an empty list and behaves exactly as before. Each guaranteed meeting is placed in the first
+free room-and-hour slot it finds — not a wholly free room, which real days routinely don't have —
+searching every room across a handful of candidate hours; if none of those combinations is free, the
+day is skipped with a message rather than risking `TimeRangeUnavailable`.
 
 Seeding a fresh environment and topping up `production` are therefore the **same operation** — on a
 new environment every day in the window is empty, so the run fills all of them; on a populated one

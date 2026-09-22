@@ -86,7 +86,12 @@ final class DemoData {
      */
     static Targets from(final UnaryOperator<String> env) {
       return new Targets(
-          intEnv(env, "TARGET_PEOPLE", 40),
+          // Raised from 40 as part of designs/realistic-demo-meeting-schedule.md: denser,
+          // bimodal room occupancy needs a larger free-people pool, and organisers (who must be
+          // fully free, unlike attendees) are the tighter constraint post-relaxation. Starting
+          // point, tuned against real generated stats - see that design's "Technical
+          // considerations".
+          intEnv(env, "TARGET_PEOPLE", 100),
           intEnv(env, "TARGET_ROOMS", 10),
           intEnv(env, "DAYS_IN_PAST", 7),
           intEnv(env, "WEEKS_AHEAD", 6));
@@ -670,17 +675,31 @@ final class DemoData {
    * every meeting in a time range and deriving the dates from their start times. The day-keyed
    * schema answers this directly: a date IS the key, so `id` is selected purely as the cheapest
    * non-empty marker and no meeting field is actually used.
+   *
+   * <p>Chunked by {@link #MAX_DATES_PER_MEETING_QUERY} even though only `id` is selected here - see
+   * that constant's own doc comment: the API's response-size cap is on total meeting count, not on
+   * which fields are selected, so a minimal selection is no protection against it.
    */
   private static Set<LocalDate> fetchDatesWithMeetings(
       final GraphQlClient client, final LocalDate windowStart, final LocalDate windowEnd) {
-    final String query =
-        "query DatesWithMeetings($dates: [String!]) { "
-            + "workspace(dates: $dates) { days { date meetings { id } } } }";
     final List<String> dates =
         weekdaysBetween(windowStart, windowEnd).stream().map(LocalDate::toString).toList();
+    final Set<LocalDate> withMeetings = new HashSet<>();
+    for (int from = 0; from < dates.size(); from += MAX_DATES_PER_MEETING_QUERY) {
+      final int to = Math.min(from + MAX_DATES_PER_MEETING_QUERY, dates.size());
+      withMeetings.addAll(fetchDatesWithMeetingsChunk(client, dates.subList(from, to)));
+    }
+    return withMeetings;
+  }
+
+  private static Set<LocalDate> fetchDatesWithMeetingsChunk(
+      final GraphQlClient client, final List<String> dates) {
     if (dates.isEmpty()) {
       return Set.of();
     }
+    final String query =
+        "query DatesWithMeetings($dates: [String!]) { "
+            + "workspace(dates: $dates) { days { date meetings { id } } } }";
 
     final JsonNode result = client.execute(query, Map.of("dates", dates));
     final Set<LocalDate> withMeetings = new HashSet<>();
@@ -693,13 +712,40 @@ final class DemoData {
   }
 
   /**
+   * How many days to ask about in one {@code workspace(dates:)} call that selects any {@code
+   * meetings} field at all - {@link #fetchDatesWithMeetings} and {@link #fetchMeetingDetails} both
+   * use this, even though the latter selects far more fields per meeting. Distinct from any
+   * dates-array-length limit: the API separately caps the total number of *meetings* a single
+   * response may enumerate, regardless of which fields are selected ("The response would be too
+   * large: more than 2000 meetings across the requested dates" - hit for real, on both of those
+   * methods independently, once room occupancy rose under designs/realistic-demo-meeting-
+   * schedule.md and one environment's 35-day window held over 2000 meetings). Five days keeps every
+   * chunk comfortably under that cap even at MeetingScheduler's own MAX_MEETINGS_PER_ROOM_PER_DAY
+   * safety ceiling (10) across as many rooms as this tool is ever likely to manage.
+   */
+  private static final int MAX_DATES_PER_MEETING_QUERY = 5;
+
+  /**
    * Existing meetings for the given days, with just the room and people fields the guarantee needs.
    *
    * <p>Separate from {@link #fetchDatesWithMeetings} rather than replacing it: that one answers
    * "does this day have any meeting at all", is asked for every top-up run, and selecting organiser
    * and attendees there would make every run pay for fields it does not use.
+   *
+   * <p>Chunked by {@link #MAX_DATES_PER_MEETING_QUERY} - see its own doc comment for why a single
+   * request across the whole window can fail once meeting volume is high enough.
    */
   private static Map<LocalDate, List<MeetingDetail>> fetchMeetingDetails(
+      final GraphQlClient client, final List<LocalDate> days) {
+    final Map<LocalDate, List<MeetingDetail>> byDate = new HashMap<>();
+    for (int from = 0; from < days.size(); from += MAX_DATES_PER_MEETING_QUERY) {
+      final int to = Math.min(from + MAX_DATES_PER_MEETING_QUERY, days.size());
+      byDate.putAll(fetchMeetingDetailsChunk(client, days.subList(from, to)));
+    }
+    return byDate;
+  }
+
+  private static Map<LocalDate, List<MeetingDetail>> fetchMeetingDetailsChunk(
       final GraphQlClient client, final List<LocalDate> days) {
     final String query =
         "query MeetingDetails($dates: [String!]) { "
@@ -707,7 +753,7 @@ final class DemoData {
             + "room { id } organiser { id } attendees { person { id } } startTime endTime } } } }";
     final List<String> dates = days.stream().map(LocalDate::toString).toList();
     if (dates.isEmpty()) {
-      return new HashMap<>();
+      return Map.of();
     }
 
     final JsonNode result = client.execute(query, Map.of("dates", dates));

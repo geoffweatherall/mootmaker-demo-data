@@ -131,7 +131,7 @@ class DemoDataTopUpTest {
   void targetsFallBackToDefaultsWhenUnset() {
     final Targets targets = Targets.from(name -> null);
 
-    assertEquals(40, targets.people());
+    assertEquals(100, targets.people());
     assertEquals(10, targets.rooms());
     assertEquals(7, targets.daysInPast());
     assertEquals(6, targets.weeksAhead());

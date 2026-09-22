@@ -93,8 +93,10 @@ class MeetingSchedulerTest {
     assertTrue(
         meetings.size() >= ROOM_COUNT,
         "Expected at least one meeting per room, got " + meetings.size());
+    // MAX_MEETINGS_PER_ROOM_PER_DAY (10) is a real safety cap in MeetingScheduler, not a guess -
+    // exceeding it would be a defect, not just an unlikely sample.
     assertTrue(
-        meetings.size() <= ROOM_COUNT * days.size() * 2,
+        meetings.size() <= ROOM_COUNT * days.size() * 10,
         "Got implausibly many meetings: " + meetings.size());
   }
 
@@ -120,18 +122,72 @@ class MeetingSchedulerTest {
     }
   }
 
+  /**
+   * Per designs/realistic-demo-meeting-schedule.md: an attendee can be invited into up to 2
+   * *simultaneous* overlapping meetings, never more - measured as true point-in-time depth (a
+   * sweep-line check at each meeting's own start instant), not merely "does some other meeting
+   * touch this one somewhere in its span". A wide meeting can legitimately be touched by two
+   * separate, mutually non-overlapping shorter meetings without ever having 3 active at once.
+   */
   @Test
-  void neverDoubleBooksAPersonAcrossAnyRoom() {
+  void attendeeNeverExceedsTheConcurrentInviteCap() {
     final List<GeneratedMeeting> meetings =
         MeetingScheduler.generate(
-            tenRooms(), personIds(), businessDays(1, SHORT_RANGE_END_DAY_OFFSET), new Random(7));
+            tenRooms(), personIds(), businessDays(0, WIDE_RANGE_END_DAY_OFFSET), new Random(7));
 
-    for (final List<GeneratedMeeting> participantMeetings : groupByParticipant(meetings).values()) {
-      for (int i = 0; i < participantMeetings.size(); i++) {
-        for (int j = i + 1; j < participantMeetings.size(); j++) {
-          final GeneratedMeeting a = participantMeetings.get(i);
-          final GeneratedMeeting b = participantMeetings.get(j);
-          assertFalse(overlaps(a, b), "Participant is double-booked in " + a + " and " + b);
+    final Map<String, List<GeneratedMeeting>> attendeeMeetingsByPerson = new HashMap<>();
+    for (final GeneratedMeeting meeting : meetings) {
+      for (final String attendeeId : meeting.attendeeIds()) {
+        attendeeMeetingsByPerson.computeIfAbsent(attendeeId, _ -> new ArrayList<>()).add(meeting);
+      }
+    }
+
+    for (final List<GeneratedMeeting> attendeeMeetings : attendeeMeetingsByPerson.values()) {
+      for (final GeneratedMeeting probe : attendeeMeetings) {
+        final long depthAtProbeStart =
+            attendeeMeetings.stream()
+                .filter(
+                    m ->
+                        !m.startTime().isAfter(probe.startTime())
+                            && m.endTime().isAfter(probe.startTime()))
+                .count();
+        assertTrue(
+            depthAtProbeStart <= 2,
+            "Attendee has " + depthAtProbeStart + " simultaneous invites at " + probe.startTime());
+      }
+    }
+  }
+
+  /**
+   * Per designs/realistic-demo-meeting-schedule.md: an organiser is never double-booked, as
+   * organiser or attendee, at an overlapping time. Checked against only the meetings that person
+   * actually organises, not every meeting they happen to attend elsewhere - an attendee may
+   * legitimately be double-booked (see above), so a person's *other* attendee invites are not part
+   * of this invariant.
+   */
+  @Test
+  void organiserIsNeverDoubleBooked() {
+    final List<GeneratedMeeting> meetings =
+        MeetingScheduler.generate(
+            tenRooms(), personIds(), businessDays(0, WIDE_RANGE_END_DAY_OFFSET), new Random(14));
+
+    for (final GeneratedMeeting organised : meetings) {
+      for (final GeneratedMeeting other : meetings) {
+        if (other == organised) {
+          continue;
+        }
+        final boolean otherInvolvesOrganiser =
+            other.organiserId().equals(organised.organiserId())
+                || other.attendeeIds().contains(organised.organiserId());
+        if (otherInvolvesOrganiser) {
+          assertFalse(
+              overlaps(organised, other),
+              "Organiser "
+                  + organised.organiserId()
+                  + " is involved in overlapping meetings "
+                  + organised
+                  + " and "
+                  + other);
         }
       }
     }
@@ -240,30 +296,31 @@ class MeetingSchedulerTest {
     }
   }
 
+  /** Per the design: roughly 20% of meetings are sized near a room's full capacity. */
   @Test
-  void atLeastHalfOfMeetingsUseAtLeastHalfTheRoomCapacity() {
+  void roughlyAFifthOfMeetingsAreNearRoomCapacity() {
     final List<RoomInfo> rooms = tenRooms();
     final Map<String, Integer> capacityByRoomId = capacityByRoomId(rooms);
 
     final List<GeneratedMeeting> meetings =
         MeetingScheduler.generate(
             rooms, personIds(), businessDays(0, WIDE_RANGE_END_DAY_OFFSET), new Random(21));
+    assertTrue(meetings.size() > 100, "sample too small: " + meetings.size());
 
-    final long largeMeetings =
+    final long nearCapacityMeetings =
         meetings.stream()
             .filter(
                 b -> {
                   final int totalPeople = 1 + b.attendeeIds().size();
                   final int capacity = capacityByRoomId.get(b.roomId());
-                  return totalPeople >= Math.ceil(capacity / 2.0);
+                  return totalPeople >= Math.ceil(capacity * 0.8);
                 })
             .count();
-    final double fraction = (double) largeMeetings / meetings.size();
+    final double fraction = (double) nearCapacityMeetings / meetings.size();
 
     assertTrue(
-        fraction >= 0.5,
-        "Expected at least half of meetings to use at least half the room's capacity, got fraction "
-            + fraction);
+        fraction > 0.1 && fraction < 0.35,
+        "Expected roughly 20% of meetings near room capacity, got fraction " + fraction);
   }
 
   /** Attendee statuses land roughly on the configured 60/13.3/13.3/13.3 mix. */
@@ -305,6 +362,12 @@ class MeetingSchedulerTest {
       final List<GeneratedMeeting> sorted =
           meetings.stream().sorted(Comparator.comparing(GeneratedMeeting::startTime)).toList();
       for (int i = 0; i < sorted.size() - 1; i++) {
+        // A genuinely overlapping consecutive pair (possible now for an attendee, up to the
+        // concurrent-invite cap) isn't a "gap or not" question - skip it rather than counting it
+        // against the ratio.
+        if (overlaps(sorted.get(i), sorted.get(i + 1))) {
+          continue;
+        }
         totalWithNext++;
         if (sorted.get(i).endTime().isBefore(sorted.get(i + 1).startTime())) {
           followedByGap++;
@@ -375,5 +438,147 @@ class MeetingSchedulerTest {
         MeetingScheduler.generate(tenRooms(), personIds(), List.of(), new Random(6));
 
     assertTrue(meetings.isEmpty());
+  }
+
+  // --- designs/realistic-demo-meeting-schedule.md invariants ---------------------------
+
+  /** The bimodal time-of-day curve: two daily peaks with a lunch trough between them. */
+  @Test
+  void meetingStartTimesShowTwoDailyPeaksWithALunchTrough() {
+    final List<GeneratedMeeting> meetings =
+        MeetingScheduler.generate(
+            tenRooms(), personIds(), businessDays(0, WIDE_RANGE_END_DAY_OFFSET), new Random(51));
+    assertTrue(meetings.size() > 100, "sample too small: " + meetings.size());
+
+    final Map<Integer, Long> countByStartHour =
+        meetings.stream()
+            .collect(Collectors.groupingBy(m -> m.startTime().getHour(), Collectors.counting()));
+
+    final long morningPeak = countByStartHour.getOrDefault(10, 0L);
+    final long afternoonPeak = countByStartHour.getOrDefault(14, 0L);
+    final long lunchTrough = countByStartHour.getOrDefault(12, 0L);
+
+    assertTrue(
+        lunchTrough < morningPeak && lunchTrough < afternoonPeak,
+        "Expected the 12:00 hour to be a trough between two peaks - counts: " + countByStartHour);
+    // Still a real (non-zero) floor, not a hard cutoff - per Geoff's preference for an occasional
+    // lunch meeting over never allowing one.
+    assertTrue(
+        lunchTrough > 0,
+        "Expected a small non-zero chance of a lunch meeting, got zero - counts: "
+            + countByStartHour);
+  }
+
+  /**
+   * A room's occupancy tier is a fixed trait of the room (derived from its id), not re-rolled per
+   * day - confirmed with Geoff. Generating two independent day ranges with different seeds should
+   * still agree on which room is busiest.
+   */
+  @Test
+  void aRoomsOccupancyTierIsConsistentAcrossDifferentDaysAndSeeds() {
+    final List<RoomInfo> rooms = tenRooms();
+    final List<LocalDate> allDays = businessDays(0, WIDE_RANGE_END_DAY_OFFSET);
+    final int midpoint = allDays.size() / 2;
+
+    final Map<String, Long> firstHalfMinutes =
+        occupiedMinutesByRoom(
+            MeetingScheduler.generate(
+                rooms, personIds(), allDays.subList(0, midpoint), new Random(61)));
+    final Map<String, Long> secondHalfMinutes =
+        occupiedMinutesByRoom(
+            MeetingScheduler.generate(
+                rooms, personIds(), allDays.subList(midpoint, allDays.size()), new Random(62)));
+
+    final String busiestInFirstHalf =
+        firstHalfMinutes.entrySet().stream()
+            .max(Map.Entry.comparingByValue())
+            .orElseThrow()
+            .getKey();
+    final double secondHalfAverage =
+        secondHalfMinutes.values().stream().mapToLong(Long::longValue).average().orElseThrow();
+
+    assertTrue(
+        secondHalfMinutes.getOrDefault(busiestInFirstHalf, 0L) > secondHalfAverage,
+        "Expected the room busiest in the first half to still be above-average in the second half"
+            + " - first half: "
+            + firstHalfMinutes
+            + ", second half: "
+            + secondHalfMinutes);
+  }
+
+  private static Map<String, Long> occupiedMinutesByRoom(final List<GeneratedMeeting> meetings) {
+    final Map<String, Long> minutesByRoom = new HashMap<>();
+    for (final GeneratedMeeting meeting : meetings) {
+      minutesByRoom.merge(
+          meeting.roomId(),
+          Duration.between(meeting.startTime(), meeting.endTime()).toMinutes(),
+          Long::sum);
+    }
+    return minutesByRoom;
+  }
+
+  /**
+   * The 95/5 RSVP conflict-resolution rule: a genuinely overlapping pair of one person's attendee
+   * invites mostly resolves to exactly one Going, occasionally (the deliberate mistake) to both.
+   */
+  @Test
+  void overlappingAttendeeInvitesResolveMostlyCorrectlySometimesBothGoing() {
+    final List<GeneratedMeeting> meetings =
+        MeetingScheduler.generate(
+            tenRooms(), personIds(), businessDays(0, WIDE_RANGE_END_DAY_OFFSET), new Random(44));
+
+    final Map<String, List<GeneratedMeeting>> attendeeMeetingsByPerson = new HashMap<>();
+    for (final GeneratedMeeting meeting : meetings) {
+      for (final String attendeeId : meeting.attendeeIds()) {
+        attendeeMeetingsByPerson.computeIfAbsent(attendeeId, _ -> new ArrayList<>()).add(meeting);
+      }
+    }
+
+    int overlappingPairs = 0;
+    int exactlyOneGoing = 0;
+    int bothGoing = 0;
+    for (final Map.Entry<String, List<GeneratedMeeting>> entry :
+        attendeeMeetingsByPerson.entrySet()) {
+      final String personId = entry.getKey();
+      final List<GeneratedMeeting> personMeetings = entry.getValue();
+      for (int i = 0; i < personMeetings.size(); i++) {
+        for (int j = i + 1; j < personMeetings.size(); j++) {
+          final GeneratedMeeting a = personMeetings.get(i);
+          final GeneratedMeeting b = personMeetings.get(j);
+          if (!overlaps(a, b)) {
+            continue;
+          }
+          overlappingPairs++;
+          final boolean aGoing = "Going".equals(statusFor(a, personId));
+          final boolean bGoing = "Going".equals(statusFor(b, personId));
+          if (aGoing && bGoing) {
+            bothGoing++;
+          } else if (aGoing != bGoing) {
+            exactlyOneGoing++;
+          }
+        }
+      }
+    }
+
+    assertTrue(overlappingPairs > 30, "sample too small: " + overlappingPairs);
+    final double bothGoingFraction = (double) bothGoing / overlappingPairs;
+    assertTrue(
+        bothGoingFraction > 0.01 && bothGoingFraction < 0.15,
+        "Expected roughly 5% of overlapping invite pairs to both resolve Going, got "
+            + bothGoingFraction
+            + " (both="
+            + bothGoing
+            + ", exactlyOne="
+            + exactlyOneGoing
+            + ", total="
+            + overlappingPairs
+            + ")");
+    assertTrue(
+        exactlyOneGoing > bothGoing,
+        "Expected most overlapping pairs to resolve to exactly one Going");
+  }
+
+  private static String statusFor(final GeneratedMeeting meeting, final String personId) {
+    return meeting.attendeeStatuses().get(meeting.attendeeIds().indexOf(personId));
   }
 }

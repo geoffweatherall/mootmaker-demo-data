@@ -37,11 +37,16 @@ class GeneratedDataInvariantsAcceptanceIT {
   // agree with the range the invariants assert over. DAYS_IN_PAST behind today and WEEKS_AHEAD in
   // front, so a freshly-seeded environment has history rather than starting empty today.
   /**
-   * The API's cap on how many dates one {@code workspace} call may ask for, mirrored rather than
-   * imported - this suite depends on the published schema, which documents the number, not on
-   * mootmaker-api's Java.
+   * The chunk size this suite reads meetings in. Well under the API's separate 42-dates-per-call
+   * limit on the {@code workspace(dates:)} array itself (documented in the schema, not mirrored
+   * here since nothing else in this suite needs that number) - the constraint that actually sizes
+   * this constant is the API's cap on a single response's total meeting count ("The response would
+   * be too large: more than 2000 meetings across the requested dates" - hit for real once room
+   * occupancy rose under designs/realistic-demo-meeting-schedule.md). Five days keeps every chunk
+   * comfortably under 2000 even at MeetingScheduler's own MAX_MEETINGS_PER_ROOM_PER_DAY safety
+   * ceiling (10) across as many rooms as this tool is ever likely to manage.
    */
-  private static final int MAX_DATES_PER_REQUEST = 42;
+  private static final int MEETINGS_READ_CHUNK_SIZE = 5;
 
   /**
    * The booking horizon, mirrored from the schema so {@link #serverToday()} can subtract it back
@@ -102,7 +107,7 @@ class GeneratedDataInvariantsAcceptanceIT {
         summary.get("meetingsCreated").asInt() > 0,
         "seeding a freshly reset environment must create meetings, got: " + summary);
     // guaranteedMeetingsCreated is deliberately NOT asserted > 0 here: topUpMeetings runs first
-    // and randomly distributes ~500 meetings across 38 people, so it can itself give the
+    // and randomly distributes meetings across every person, so it can itself give the
     // guaranteed person every work day purely by chance, leaving guaranteeMeetings with nothing
     // left to do - a correct, idempotent zero (see mootmaker-demo-data#32). What has to be true
     // regardless of how the RNG landed is checked below, against the read-back data, in
@@ -217,33 +222,74 @@ class GeneratedDataInvariantsAcceptanceIT {
     assertTrue(clashes.isEmpty(), "double-booked rooms: " + clashes);
   }
 
+  /**
+   * Per designs/realistic-demo-meeting-schedule.md: an organiser is never double-booked, as
+   * organiser or attendee, at an overlapping time - running two meetings at once isn't something an
+   * RSVP can resolve. Checked only against meetings the person actually organises: an attendee may
+   * legitimately be double-booked elsewhere (see {@link
+   * #attendeeNeverExceedsTheConcurrentInviteCap} below), so that's not part of this invariant.
+   */
   @Test
-  @DisplayName("nobody is in two meetings at once")
-  void noPersonIsInTwoOverlappingMeetings() {
-    final Map<String, List<Meeting>> byPerson = new HashMap<>();
-    for (final Meeting meeting : meetings) {
-      for (final String personId : meeting.participantIds()) {
-        byPerson.computeIfAbsent(personId, id -> new ArrayList<>()).add(meeting);
-      }
-    }
-
+  @DisplayName("an organiser is never double-booked, as organiser or attendee")
+  void organiserIsNeverDoubleBooked() {
     final List<String> clashes = new ArrayList<>();
-    for (final Map.Entry<String, List<Meeting>> entry : byPerson.entrySet()) {
-      final List<Meeting> theirs = entry.getValue();
-      for (int i = 0; i < theirs.size(); i++) {
-        for (int j = i + 1; j < theirs.size(); j++) {
-          if (theirs.get(i).overlaps(theirs.get(j))) {
-            clashes.add(
-                entry.getKey()
-                    + ": "
-                    + describe(theirs.get(i))
-                    + " overlaps "
-                    + describe(theirs.get(j)));
-          }
+    for (final Meeting organised : meetings) {
+      for (final Meeting other : meetings) {
+        if (other == organised) {
+          continue;
+        }
+        final boolean otherInvolvesOrganiser =
+            other.organiserId().equals(organised.organiserId())
+                || other.attendeeIds().contains(organised.organiserId());
+        if (otherInvolvesOrganiser && organised.overlaps(other)) {
+          clashes.add(
+              organised.organiserId()
+                  + ": "
+                  + describe(organised)
+                  + " overlaps "
+                  + describe(other));
         }
       }
     }
-    assertTrue(clashes.isEmpty(), "people double-booked: " + clashes);
+    assertTrue(clashes.isEmpty(), "organisers double-booked: " + clashes);
+  }
+
+  /**
+   * Per designs/realistic-demo-meeting-schedule.md: an attendee can be invited into up to 2
+   * *simultaneous* overlapping meetings, modelling a real conflicting invite that gets resolved via
+   * RSVP rather than never existing. Measured as true point-in-time depth (a sweep-line check at
+   * each meeting's own start instant) - a wide meeting can legitimately be touched by two separate,
+   * mutually non-overlapping shorter meetings without ever having 3 active at once.
+   */
+  @Test
+  @DisplayName("an attendee is never invited into more than 2 simultaneous meetings")
+  void attendeeNeverExceedsTheConcurrentInviteCap() {
+    final Map<String, List<Meeting>> attendeeMeetingsByPerson = new HashMap<>();
+    for (final Meeting meeting : meetings) {
+      for (final String attendeeId : meeting.attendeeIds()) {
+        attendeeMeetingsByPerson.computeIfAbsent(attendeeId, id -> new ArrayList<>()).add(meeting);
+      }
+    }
+
+    final List<String> overCap = new ArrayList<>();
+    for (final Map.Entry<String, List<Meeting>> entry : attendeeMeetingsByPerson.entrySet()) {
+      final List<Meeting> theirs = entry.getValue();
+      for (final Meeting probe : theirs) {
+        final long depthAtProbeStart =
+            theirs.stream()
+                .filter(m -> !m.start().isAfter(probe.start()) && m.end().isAfter(probe.start()))
+                .count();
+        if (depthAtProbeStart > 2) {
+          overCap.add(
+              entry.getKey()
+                  + " has "
+                  + depthAtProbeStart
+                  + " simultaneous invites at "
+                  + probe.start());
+        }
+      }
+    }
+    assertTrue(overCap.isEmpty(), "attendees over the concurrent-invite cap: " + overCap);
   }
 
   @Test
@@ -321,7 +367,7 @@ class GeneratedDataInvariantsAcceptanceIT {
   @Test
   @DisplayName("the people and room targets are met exactly, not exceeded")
   void targetsAreMet() {
-    assertEquals(40, fetchCount("people"), "people should be topped up to the configured target");
+    assertEquals(100, fetchCount("people"), "people should be topped up to the configured target");
     assertEquals(10, fetchCount("rooms"), "rooms should be topped up to the configured target");
   }
 
@@ -379,13 +425,14 @@ class GeneratedDataInvariantsAcceptanceIT {
       dates.add(day.toString());
     }
     final List<Meeting> found = new ArrayList<>();
-    // In chunks, because workspace(dates:) caps at MAX_DATES_PER_REQUEST and this window is
-    // wider than that. Weekends are included rather than skipped: the seeder is supposed to
-    // place nothing on them, and a read that only asked for weekdays would make the invariant
-    // asserting exactly that pass without being able to fail.
-    for (int from = 0; from < dates.size(); from += MAX_DATES_PER_REQUEST) {
+    // In chunks of MEETINGS_READ_CHUNK_SIZE (well under MAX_DATES_PER_REQUEST - see that
+    // constant's own doc comment for the separate total-meeting-count cap this avoids). Weekends
+    // are included rather than skipped: the seeder is supposed to place nothing on them, and a
+    // read that only asked for weekdays would make the invariant asserting exactly that pass
+    // without being able to fail.
+    for (int from = 0; from < dates.size(); from += MEETINGS_READ_CHUNK_SIZE) {
       final List<String> chunk =
-          dates.subList(from, Math.min(from + MAX_DATES_PER_REQUEST, dates.size()));
+          dates.subList(from, Math.min(from + MEETINGS_READ_CHUNK_SIZE, dates.size()));
       collectMeetings(chunk, found);
     }
     return found;
