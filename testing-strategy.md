@@ -24,7 +24,7 @@ just restate the implementation and break on every tuning change. What matters i
 - no room is double-booked;
 - no organiser is ever double-booked, as organiser or attendee; an attendee may be invited into up
   to 2 simultaneous overlapping meetings, but never more (see
-  [mootmaker/designs/realistic-demo-meeting-schedule.md](https://github.com/geoffweatherall/mootmaker/blob/main/designs/realistic-demo-meeting-schedule.md));
+  [mootmaker/designs/archive/realistic-demo-meeting-schedule.md](https://github.com/geoffweatherall/mootmaker/blob/main/designs/archive/realistic-demo-meeting-schedule.md));
 - nothing falls outside business hours (08:00–17:00);
 - no meeting exceeds its room's capacity, and every meeting has an organiser and an attendee;
 - the people and room targets are met exactly, not exceeded.
