@@ -549,11 +549,11 @@ class MeetingSchedulerTest {
             continue;
           }
           overlappingPairs++;
-          final boolean aGoing = "Going".equals(statusFor(a, personId));
-          final boolean bGoing = "Going".equals(statusFor(b, personId));
-          if (aGoing && bGoing) {
+          final boolean firstGoing = "Going".equals(statusFor(a, personId));
+          final boolean secondGoing = "Going".equals(statusFor(b, personId));
+          if (firstGoing && secondGoing) {
             bothGoing++;
-          } else if (aGoing != bGoing) {
+          } else if (firstGoing != secondGoing) {
             exactlyOneGoing++;
           }
         }
