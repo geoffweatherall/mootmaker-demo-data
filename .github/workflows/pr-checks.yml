@@ -1,4 +1,4 @@
-# Required PR gate for mootmaker-demo-data. See mootmaker/designs/ci-cd-pipeline.md Decision 12.
+# Required PR gate for mootmaker-demo-data. See mootmaker/designs/archive/ci-cd-pipeline.md Decision 12.
 #
 # Same shape as mootmaker-api's, deliberately: both are Maven repositories with a deployable
 # impl/ module and a separate verify/ acceptance module.
