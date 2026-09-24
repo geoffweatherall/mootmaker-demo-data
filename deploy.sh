@@ -13,7 +13,7 @@
 # are active.
 #
 # --skip-build deploys the jar already sitting in impl/target/ instead of rebuilding it. This is
-# what makes Decision 8 of mootmaker/designs/ci-cd-pipeline.md ("build once, promote the same
+# what makes Decision 8 of mootmaker/designs/archive/ci-cd-pipeline.md ("build once, promote the same
 # artifact") actually true: the release pipeline builds the jar once, then deploys that identical
 # file to test and then production. Rebuilding per environment would produce two different jars and
 # promote nothing. Not useful interactively - omit it and this script behaves as it always has.

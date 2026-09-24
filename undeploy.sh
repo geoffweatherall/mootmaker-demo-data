@@ -6,7 +6,7 @@
 #
 # --yes passes -auto-approve, for automation that has no stdin to answer the prompt with (the
 # release pipeline's ephemeral acceptance environments, and the scheduled ephemeral sweep - see
-# mootmaker/designs/ci-cd-pipeline.md Rollout steps 6 and 11). Use this rather than piping a
+# mootmaker/designs/archive/ci-cd-pipeline.md Rollout steps 6 and 11). Use this rather than piping a
 # confirmation in: `yes yes | ./undeploy.sh <environment>` answers whatever it is pointed at,
 # which defeats the safeguard instead of narrowing it.
 #
