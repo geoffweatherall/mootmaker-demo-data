@@ -92,7 +92,7 @@ final class FakeGraphQlClient extends GraphQlClient {
       return workspaceWith("rooms", rooms);
     }
     if (query.contains("createPerson")) {
-      final String name = nestedString(variables, "person", "name");
+      final String name = String.valueOf(variables.get("name"));
       createdPeopleNames.add(name);
       // { person { ... }, errors }, the shape CreatePersonResult actually has. This fake used
       // to return id and name directly on the result, which the schema has never allowed - so
