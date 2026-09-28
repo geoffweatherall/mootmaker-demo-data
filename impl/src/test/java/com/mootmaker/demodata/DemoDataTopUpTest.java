@@ -33,7 +33,7 @@ class DemoDataTopUpTest {
 
   @Test
   void roughlyNineInTenNewPeopleGetAnAvatarPhoto() {
-    // A large batch so the 10%-no-photo rate (see designs/person-avatar-photos.md) is
+    // A large batch so the 10%-no-photo rate (see designs/archive/person-avatar-photos.md) is
     // statistically checkable rather than exact - FIXED's seed makes the actual count
     // deterministic, but this asserts the rate's shape rather than pinning that exact number to
     // avoid the test becoming a change-detector on SampleData.avatarPhotoFor's internals.
@@ -46,6 +46,27 @@ class DemoDataTopUpTest {
     assertEquals(1000, client.createdPeople().size());
     assertTrue(
         withPhoto > 850 && withPhoto < 950, "expected roughly 900 of 1000, got " + withPhoto);
+  }
+
+  /**
+   * The leading slash is load bearing, not cosmetic. Without it the webapp resolves the path
+   * against the current document rather than its origin, so a photo only loads on depth-1 routes -
+   * and because an SPA answers an unmatched path with index.html at status 200, the failure is
+   * silent (the avatar just falls back to initials). See designs/archive/person-avatar-photos.md.
+   */
+  @Test
+  void everyAssignedPhotoIsOriginRelative() {
+    final FakeGraphQlClient client = new FakeGraphQlClient(0, List.of());
+
+    DemoData.topUpPeople(client, 200, FIXED);
+
+    for (final FakeGraphQlClient.CreatedPerson person : client.createdPeople()) {
+      if (person.photoUrl() != null) {
+        assertTrue(
+            person.photoUrl().startsWith("/avatars/"),
+            person.name() + " got a document-relative path: " + person.photoUrl());
+      }
+    }
   }
 
   @Test
@@ -62,7 +83,7 @@ class DemoDataTopUpTest {
       final boolean isFemale = SampleData.FEMALE_FIRST_NAMES.contains(firstName);
       assertEquals(
           isFemale,
-          person.photoUrl().startsWith("avatars/female-"),
+          person.photoUrl().startsWith("/avatars/female-"),
           person.name() + " got " + person.photoUrl());
     }
   }
