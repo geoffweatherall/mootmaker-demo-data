@@ -32,6 +32,42 @@ class DemoDataTopUpTest {
   }
 
   @Test
+  void roughlyNineInTenNewPeopleGetAnAvatarPhoto() {
+    // A large batch so the 10%-no-photo rate (see designs/person-avatar-photos.md) is
+    // statistically checkable rather than exact - FIXED's seed makes the actual count
+    // deterministic, but this asserts the rate's shape rather than pinning that exact number to
+    // avoid the test becoming a change-detector on SampleData.avatarPhotoFor's internals.
+    final FakeGraphQlClient client = new FakeGraphQlClient(0, List.of());
+
+    DemoData.topUpPeople(client, 1000, FIXED);
+
+    final long withPhoto =
+        client.createdPeople().stream().filter(p -> p.photoUrl() != null).count();
+    assertEquals(1000, client.createdPeople().size());
+    assertTrue(
+        withPhoto > 850 && withPhoto < 950, "expected roughly 900 of 1000, got " + withPhoto);
+  }
+
+  @Test
+  void everyAssignedPhotoMatchesTheFirstNamesTaggedGender() {
+    final FakeGraphQlClient client = new FakeGraphQlClient(0, List.of());
+
+    DemoData.topUpPeople(client, 1000, FIXED);
+
+    for (final FakeGraphQlClient.CreatedPerson person : client.createdPeople()) {
+      if (person.photoUrl() == null) {
+        continue;
+      }
+      final String firstName = person.name().split(" ", 2)[0];
+      final boolean isFemale = SampleData.FEMALE_FIRST_NAMES.contains(firstName);
+      assertEquals(
+          isFemale,
+          person.photoUrl().startsWith("avatars/female-"),
+          person.name() + " got " + person.photoUrl());
+    }
+  }
+
+  @Test
   void createsNoPeopleWhenAlreadyAtTarget() {
     final FakeGraphQlClient client = new FakeGraphQlClient(40, List.of());
 

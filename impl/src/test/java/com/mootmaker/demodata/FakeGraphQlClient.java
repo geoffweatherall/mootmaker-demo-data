@@ -17,7 +17,14 @@ final class FakeGraphQlClient extends GraphQlClient {
 
   private final int existingPeople;
   private final List<String> existingRoomNames;
-  private final List<String> createdPeopleNames = Collections.synchronizedList(new ArrayList<>());
+  // One list of pairs, not two parallel lists: createPerson calls run concurrently (see
+  // DemoData#topUpPeople), so name and photoUrl have to land in the same list element atomically
+  // or a test zipping them back together by index could pair the wrong two up.
+  private final List<CreatedPerson> createdPeople = Collections.synchronizedList(new ArrayList<>());
+
+  /** One createPerson call - {@code photoUrl} is null when none was assigned. */
+  record CreatedPerson(String name, String photoUrl) {}
+
   private final List<String> createdRoomNames = Collections.synchronizedList(new ArrayList<>());
   private final List<BulkCall> createMeetingsCalls =
       Collections.synchronizedList(new ArrayList<>());
@@ -58,7 +65,11 @@ final class FakeGraphQlClient extends GraphQlClient {
   }
 
   List<String> createdPeopleNames() {
-    return List.copyOf(createdPeopleNames);
+    return createdPeople.stream().map(CreatedPerson::name).toList();
+  }
+
+  List<CreatedPerson> createdPeople() {
+    return List.copyOf(createdPeople);
   }
 
   List<String> createdRoomNames() {
@@ -93,7 +104,8 @@ final class FakeGraphQlClient extends GraphQlClient {
     }
     if (query.contains("createPerson")) {
       final String name = String.valueOf(variables.get("name"));
-      createdPeopleNames.add(name);
+      final String photoUrl = (String) variables.get("photoUrl");
+      createdPeople.add(new CreatedPerson(name, photoUrl));
       // { person { ... }, errors }, the shape CreatePersonResult actually has. This fake used
       // to return id and name directly on the result, which the schema has never allowed - so
       // every unit test passed against a shape the API would reject. A fake confirms your

@@ -211,17 +211,24 @@ final class DemoData {
     // because this path had no acceptance coverage and the fake client mirrored the same wrong
     // shape back.
     final String mutation =
-        "mutation CreatePerson($name: String!) { "
-            + "createPerson(name: $name) { person { id name } errors } }";
-    // Random isn't safe for concurrent use, so the names are drawn up front, sequentially;
-    // only the network calls below run in parallel. The names are distinct by construction,
-    // which is what lets the loop below index by position rather than by name.
+        "mutation CreatePerson($name: String!, $photoUrl: String) { "
+            + "createPerson(name: $name, photoUrl: $photoUrl) { person { id name } errors } }";
+    // Random isn't safe for concurrent use, so the names and avatar photos are drawn up front,
+    // sequentially; only the network calls below run in parallel. The names are distinct by
+    // construction, which is what lets the loop below index by position rather than by name.
     final List<String> names = SampleData.personNames(toCreate, random);
+    final List<String> photoUrls =
+        names.stream().map(name -> SampleData.avatarPhotoFor(name, random)).toList();
 
     runInParallel(
         IntStream.range(0, toCreate).boxed().toList(),
         i -> {
-          final JsonNode result = client.execute(mutation, Map.of("name", names.get(i)));
+          // A HashMap, not Map.of: a person with no avatar photo needs an explicit null for
+          // $photoUrl, which Map.of rejects.
+          final Map<String, Object> variables = new HashMap<>();
+          variables.put("name", names.get(i));
+          variables.put("photoUrl", photoUrls.get(i));
+          final JsonNode result = client.execute(mutation, variables);
           failIfErrors(result.get("createPerson"), "createPerson(" + names.get(i) + ")");
           System.out.println("  " + result.get("createPerson").get("person").get("name").asText());
         });
