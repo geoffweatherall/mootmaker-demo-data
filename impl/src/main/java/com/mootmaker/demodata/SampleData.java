@@ -55,6 +55,39 @@ final class SampleData {
           "Emeka",
           "Ingrid");
 
+  /**
+   * The subset of {@link #FIRST_NAMES} tagged female, so a generated person is given a photograph
+   * of someone whose apparent sex matches their name - see
+   * mootmaker/designs/photorealistic-demo-avatars.md. Every other first name in the list is treated
+   * as male. A direct tag rather than a name-parsing heuristic: FIRST_NAMES is a small, closed list
+   * this class owns end to end, so tagging each of the 40 names once here is strictly more accurate
+   * than guessing, and no name in the list is genuinely ambiguous enough to need one. 20 of 40.
+   *
+   * <p>A guess about a fictional person, made only to keep a demo from looking obviously wrong - it
+   * says nothing about anyone real, and nothing but avatar choice reads it.
+   */
+  static final Set<String> FEMALE_FIRST_NAMES =
+      Set.of(
+          "Amelia", "Priya", "Sofia", "Olivia", "Freya", "Clara", "Nadia", "Leila", "Mei", "Aisha",
+          "Rosa", "Imogen", "Elena", "Sana", "Beatrix", "Niamh", "Astrid", "Zainab", "Margot",
+          "Ingrid");
+
+  /** Which half of the photograph pool a person's avatar comes from. */
+  enum Sex {
+    FEMALE,
+    MALE
+  }
+
+  /**
+   * The sex {@link #FEMALE_FIRST_NAMES} tags this name with. {@code fullName} is expected to be one
+   * {@link #personNames} produced, "First Last"; anything else is read by its first word, and an
+   * untagged first name is male, as it always has been.
+   */
+  static Sex sexOf(final String fullName) {
+    final String firstName = fullName.trim().split("\\s+", 2)[0];
+    return FEMALE_FIRST_NAMES.contains(firstName) ? Sex.FEMALE : Sex.MALE;
+  }
+
   static final List<String> LAST_NAMES =
       List.of(
           "Whitfield",
