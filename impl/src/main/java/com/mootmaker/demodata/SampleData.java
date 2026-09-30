@@ -58,10 +58,11 @@ final class SampleData {
   /**
    * The subset of {@link #FIRST_NAMES} tagged female, so a generated person is given a photograph
    * of someone whose apparent sex matches their name - see
-   * mootmaker/designs/photorealistic-demo-avatars.md. Every other first name in the list is treated
-   * as male. A direct tag rather than a name-parsing heuristic: FIRST_NAMES is a small, closed list
-   * this class owns end to end, so tagging each of the 40 names once here is strictly more accurate
-   * than guessing, and no name in the list is genuinely ambiguous enough to need one. 20 of 40.
+   * mootmaker/designs/archive/photorealistic-demo-avatars.md. Every other first name in the list is
+   * treated as male. A direct tag rather than a name-parsing heuristic: FIRST_NAMES is a small,
+   * closed list this class owns end to end, so tagging each of the 40 names once here is strictly
+   * more accurate than guessing, and no name in the list is genuinely ambiguous enough to need one.
+   * 20 of 40.
    *
    * <p>A guess about a fictional person, made only to keep a demo from looking obviously wrong - it
    * says nothing about anyone real, and nothing but avatar choice reads it.

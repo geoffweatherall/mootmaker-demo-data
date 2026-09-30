@@ -11,7 +11,7 @@ import module java.base;
  * the classpath under {@code avatars-photo/}. <b>None of them is a real person</b>: they were
  * generated with Stable Diffusion by the tool in {@code photorealistic-avatar-generator/}, whose
  * {@code manifest.json} records each one's prompt and seed. They are committed; nothing here runs a
- * model. See mootmaker/designs/photorealistic-demo-avatars.md.
+ * model. See mootmaker/designs/archive/photorealistic-demo-avatars.md.
  *
  * <p><b>Which images are in use is read back from the API, not remembered.</b> mootmaker-api keys
  * every avatar by the SHA-256 of the bytes that were uploaded, and that hash is the last path

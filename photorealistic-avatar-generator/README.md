@@ -3,7 +3,7 @@
 Generates the demo avatar pool in `../impl/src/main/resources/avatars-photo/`: `man-1.jpg` …
 `man-100.jpg` and `woman-1.jpg` … `woman-100.jpg`. Each is a 512×512 JPEG of a generated,
 non-existent person, cropped square with the nose tip at the centre. It is a one-off local tool,
-not part of the Lambda or its build. See `mootmaker/designs/photorealistic-demo-avatars.md`.
+not part of the Lambda or its build. See `mootmaker/designs/archive/photorealistic-demo-avatars.md`.
 
 ## How it works
 

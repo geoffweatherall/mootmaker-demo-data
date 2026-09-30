@@ -68,7 +68,7 @@ The photographs are 100 men and 100 women, 512x512 JPEGs bundled in
 [`photorealistic-avatar-generator/`](photorealistic-avatar-generator/) is the tool that made them,
 with each image's prompt and seed in its `manifest.json`. It is authoring-time tooling needing a
 GPU; nothing in the build, the jar or the Lambda runs it. See
-[photorealistic-demo-avatars.md](https://github.com/geoffweatherall/mootmaker/blob/main/designs/photorealistic-demo-avatars.md).
+[photorealistic-demo-avatars.md](https://github.com/geoffweatherall/mootmaker/blob/main/designs/archive/photorealistic-demo-avatars.md).
 
 Sex comes from `SampleData.FEMALE_FIRST_NAMES`, a direct tag on 20 of the 40 curated first names;
 every other name is treated as male. It is a guess about a fictional person, made only so a demo
