@@ -44,13 +44,10 @@ CLOTHING = {
 }
 
 
-# (old, new) substitutions for prompts that reliably misfire whatever the seed: SD 1.5 draws a lone
+# (old, new) substitutions for prompts that reliably misfire whatever the seed, e.g. SD 1.5 draws a lone
 # "moustache" as a stuck-on cartoon one, and a coloured garment next to a hair colour bleeds into the hair.
-PROMPT_OVERRIDES = {
-    "man-56": ("and a moustache", "and a short beard"),
-    "man-62": ("and a moustache", "and stubble"),
-    "woman-14": ("a teal blouse", "a cream blouse"),
-}
+# Entries are tied to the exact prompts ETHNICITY_COUNTS produces, so changing the mix invalidates them all.
+PROMPT_OVERRIDES = {}
 
 
 def hair_for(rng, sex, ethnicity, age):

@@ -9,7 +9,12 @@ not part of the Lambda or its build. See `mootmaker/designs/photorealistic-demo-
 
 1. `pool.py` builds 200 prompts deterministically: sex, age 23–64, ethnicity mix, hair, glasses,
    clothing, expression, pose and background, all drawn from a fixed-seed RNG. The mix per sex is
-   80 white European, 10 South Asian, 5 East Asian and 5 Black.
+   `ETHNICITY_COUNTS`, currently 50 white European, 20 South Asian, 15 East Asian and 15 Black.
+
+   **The committed pool and `manifest.json` were generated at an older mix: 80/10/5/5.** Changing
+   the mix reshuffles every prompt, so the script no longer reproduces those images, and
+   `--reroll` would produce a person from the new mix. To get a consistent pool at the current mix,
+   delete the images and `manifest.json` and regenerate all 200.
 2. Stable Diffusion 1.5 renders each prompt at 512×768 with a per-image seed.
 3. `center_face.py` finds the face with OpenCV's YuNet detector and crops a square of 1.8× the
    face width, centred on the nose tip. The script rejects the attempt and tries the next seed if:
