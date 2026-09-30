@@ -126,6 +126,12 @@ class GraphQlClient {
    * rejects a request that presents two forms of authentication. The content type must be exactly
    * the one declared to {@code requestAvatarUpload}, and the body exactly the declared length -
    * both are part of what was signed. {@code HttpClient} sets Content-Length from the body itself.
+   *
+   * <p>Retried once if the connection drops before any response arrives. The client pools
+   * connections, and S3 closes one that has sat idle, so the next request on it fails having read
+   * nothing - observed in mootmaker-api's acceptance suite. The JDK retries that on its own only
+   * for GET and HEAD. Repeating this PUT is safe: it writes the same bytes to the same staged
+   * object.
    */
   void put(final String url, final String contentType, final byte[] body) {
     final HttpRequest request =
@@ -134,8 +140,13 @@ class GraphQlClient {
             .PUT(HttpRequest.BodyPublishers.ofByteArray(body))
             .build();
     try {
-      final HttpResponse<String> response =
-          httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+      HttpResponse<String> response;
+      try {
+        response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+      } catch (final IOException droppedConnection) {
+        System.out.println("  retrying an avatar upload after: " + droppedConnection);
+        response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+      }
       if (response.statusCode() != 200) {
         throw new IllegalStateException(
             "Upload was refused with HTTP " + response.statusCode() + ": " + response.body());
