@@ -17,13 +17,54 @@ final class FakeGraphQlClient extends GraphQlClient {
 
   private final int existingPeople;
   private final List<String> existingRoomNames;
-  // One list of pairs, not two parallel lists: createPerson calls run concurrently (see
-  // DemoData#topUpPeople), so name and photoUrl have to land in the same list element atomically
-  // or a test zipping them back together by index could pair the wrong two up.
-  private final List<CreatedPerson> createdPeople = Collections.synchronizedList(new ArrayList<>());
+  // Keyed by the id createPerson handed back. createPerson and the avatar upload for the same
+  // person happen on one worker thread but interleave with other people's, so everything about a
+  // person hangs off their id rather than off the order calls arrived in.
+  private final Map<String, String> createdNamesById = new ConcurrentHashMap<>();
+  private final Map<String, String> avatarHashByPersonId = new ConcurrentHashMap<>();
+  private final Map<String, Upload> uploadsById = new ConcurrentHashMap<>();
+  private final List<String> existingAvatarUrls = new ArrayList<>();
+  private String rejectConfirmWith;
 
-  /** One createPerson call - {@code photoUrl} is null when none was assigned. */
-  record CreatedPerson(String name, String photoUrl) {}
+  /** One created person - {@code avatarSha256} is null when no avatar was set. */
+  record CreatedPerson(String name, String avatarSha256) {}
+
+  /** One avatar upload, as the three calls described it. */
+  static final class Upload {
+    final String personId;
+    final String declaredContentType;
+    final int declaredContentLength;
+    volatile String putContentType;
+    volatile byte[] putBytes;
+    volatile boolean confirmed;
+
+    Upload(final String personId, final String contentType, final int contentLength) {
+      this.personId = personId;
+      this.declaredContentType = contentType;
+      this.declaredContentLength = contentLength;
+    }
+  }
+
+  List<Upload> uploads() {
+    return List.copyOf(uploadsById.values());
+  }
+
+  /**
+   * Gives existing people avatars with these hashes, as the real API would report them: absolute
+   * URLs, each under its own person's path. The first {@code hashes.size()} people get one.
+   */
+  void withExistingAvatarHashes(final Collection<String> hashes) {
+    int index = 0;
+    for (final String hash : hashes) {
+      existingAvatarUrls.add(
+          "https://avatars.example.test/v1/person-" + index++ + "/" + hash + ".jpg");
+    }
+  }
+
+  /** Makes confirmAvatarUpload reject, to exercise the failure path. */
+  void rejectingConfirmWith(final String error) {
+    rejectConfirmWith = error;
+  }
 
   private final List<String> createdRoomNames = Collections.synchronizedList(new ArrayList<>());
   private final List<BulkCall> createMeetingsCalls =
@@ -65,11 +106,29 @@ final class FakeGraphQlClient extends GraphQlClient {
   }
 
   List<String> createdPeopleNames() {
-    return createdPeople.stream().map(CreatedPerson::name).toList();
+    return List.copyOf(createdNamesById.values());
   }
 
   List<CreatedPerson> createdPeople() {
-    return List.copyOf(createdPeople);
+    return createdNamesById.entrySet().stream()
+        .map(entry -> new CreatedPerson(entry.getValue(), avatarHashByPersonId.get(entry.getKey())))
+        .toList();
+  }
+
+  /** Stands in for S3: accepts the bytes against the upload the URL names. */
+  @Override
+  void put(final String url, final String contentType, final byte[] body) {
+    final Upload upload = uploadsById.get(url.substring(url.lastIndexOf('/') + 1));
+    if (upload == null) {
+      throw new AssertionError("PUT to a URL no requestAvatarUpload issued: " + url);
+    }
+    // What S3 enforces from the signature: exactly the declared type, exactly the declared length.
+    if (!contentType.equals(upload.declaredContentType)
+        || body.length != upload.declaredContentLength) {
+      throw new IllegalStateException("Upload was refused with HTTP 403: SignatureDoesNotMatch");
+    }
+    upload.putContentType = contentType;
+    upload.putBytes = body;
   }
 
   List<String> createdRoomNames() {
@@ -90,6 +149,69 @@ final class FakeGraphQlClient extends GraphQlClient {
       }
       return workspaceWith("people", people);
     }
+    if (query.contains("workspace { people { id avatarUrl } }")) {
+      final var people = OBJECT_MAPPER.createArrayNode();
+      for (int i = 0; i < existingPeople; i++) {
+        final var person = OBJECT_MAPPER.createObjectNode().put("id", "person-" + i);
+        if (i < existingAvatarUrls.size()) {
+          person.put("avatarUrl", existingAvatarUrls.get(i));
+        } else {
+          person.putNull("avatarUrl");
+        }
+        people.add(person);
+      }
+      return workspaceWith("people", people);
+    }
+    if (query.contains("requestAvatarUpload")) {
+      final String personId = String.valueOf(variables.get("personId"));
+      if (!createdNamesById.containsKey(personId)) {
+        throw new AssertionError("requestAvatarUpload for a person never created: " + personId);
+      }
+      final String uploadId = UUID.randomUUID().toString();
+      uploadsById.put(
+          uploadId,
+          new Upload(
+              personId,
+              String.valueOf(variables.get("contentType")),
+              ((Number) variables.get("contentLength")).intValue()));
+      final var upload =
+          OBJECT_MAPPER
+              .createObjectNode()
+              .put("uploadId", uploadId)
+              .put("url", "https://s3.example.test/uploads/" + personId + "/" + uploadId);
+      final var payload = OBJECT_MAPPER.createObjectNode();
+      payload.set("upload", upload);
+      payload.set("errors", OBJECT_MAPPER.createArrayNode());
+      return OBJECT_MAPPER.createObjectNode().set("requestAvatarUpload", payload);
+    }
+    if (query.contains("confirmAvatarUpload")) {
+      final String personId = String.valueOf(variables.get("personId"));
+      final Upload upload = uploadsById.get(String.valueOf(variables.get("uploadId")));
+      final var payload = OBJECT_MAPPER.createObjectNode();
+      final var errors = OBJECT_MAPPER.createArrayNode();
+      payload.set("errors", errors);
+      if (upload == null || !upload.personId.equals(personId) || upload.putBytes == null) {
+        errors.add("UploadNotFound");
+        payload.putNull("person");
+      } else if (rejectConfirmWith != null) {
+        errors.add(rejectConfirmWith);
+        payload.putNull("person");
+      } else {
+        // Keyed by the hash of the bytes as uploaded, exactly as the real API keys them.
+        final String hash = sha256Hex(upload.putBytes);
+        upload.confirmed = true;
+        avatarHashByPersonId.put(personId, hash);
+        payload.set(
+            "person",
+            OBJECT_MAPPER
+                .createObjectNode()
+                .put("id", personId)
+                .put(
+                    "avatarUrl",
+                    "https://avatars.example.test/v1/" + personId + "/" + hash + ".jpg"));
+      }
+      return OBJECT_MAPPER.createObjectNode().set("confirmAvatarUpload", payload);
+    }
     if (query.contains("workspace { rooms { id name capacity } }")) {
       final var rooms = OBJECT_MAPPER.createArrayNode();
       for (int i = 0; i < existingRoomNames.size(); i++) {
@@ -104,17 +226,18 @@ final class FakeGraphQlClient extends GraphQlClient {
     }
     if (query.contains("createPerson")) {
       final String name = String.valueOf(variables.get("name"));
-      final String photoUrl = (String) variables.get("photoUrl");
-      createdPeople.add(new CreatedPerson(name, photoUrl));
+      // The schema declares exactly one argument. The real API would refuse anything else before
+      // a resolver ran, so this fake does too, rather than politely ignoring it.
+      if (!variables.keySet().equals(Set.of("name")) || query.contains("avatarUrl:")) {
+        throw new AssertionError("createPerson takes only a name, got: " + variables.keySet());
+      }
+      final String id = UUID.randomUUID().toString();
+      createdNamesById.put(id, name);
       // { person { ... }, errors }, the shape CreatePersonResult actually has. This fake used
       // to return id and name directly on the result, which the schema has never allowed - so
       // every unit test passed against a shape the API would reject. A fake confirms your
       // model of a dependency, not the dependency.
-      final var person =
-          OBJECT_MAPPER
-              .createObjectNode()
-              .put("id", UUID.randomUUID().toString())
-              .put("name", name);
+      final var person = OBJECT_MAPPER.createObjectNode().put("id", id).put("name", name);
       final var payload = OBJECT_MAPPER.createObjectNode();
       payload.set("person", person);
       payload.set("errors", OBJECT_MAPPER.createArrayNode());
@@ -187,5 +310,13 @@ final class FakeGraphQlClient extends GraphQlClient {
   private static String nestedString(
       final Map<String, Object> variables, final String outer, final String field) {
     return ((Map<String, Object>) variables.get(outer)).get(field).toString();
+  }
+
+  private static String sha256Hex(final byte[] bytes) {
+    try {
+      return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+    } catch (final NoSuchAlgorithmException e) {
+      throw new IllegalStateException(e);
+    }
   }
 }

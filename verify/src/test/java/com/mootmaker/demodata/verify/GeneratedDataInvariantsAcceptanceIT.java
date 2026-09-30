@@ -5,8 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import module java.base;
+import module java.net.http;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import java.awt.image.BufferedImage;
+import javax.imageio.ImageIO;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -462,6 +465,83 @@ class GeneratedDataInvariantsAcceptanceIT {
                 attendeeStatuses,
                 LocalDateTime.parse(meeting.get("startTime").asText()),
                 LocalDateTime.parse(meeting.get("endTime").asText())));
+      }
+    }
+  }
+
+  // --- Avatars --------------------------------------------------------------------------
+
+  private static final Pattern AVATAR_HASH = Pattern.compile("/([0-9a-f]{64})\\.jpg$");
+
+  /** Every person's avatarUrl that is set, as the API reports it. */
+  private List<String> fetchAvatarUrls() {
+    final JsonNode data = client.execute("query { workspace { people { id avatarUrl } } }");
+    final List<String> avatarUrls = new ArrayList<>();
+    for (final JsonNode person : data.get("workspace").get("people")) {
+      if (!person.get("avatarUrl").isNull()) {
+        avatarUrls.add(person.get("avatarUrl").asText());
+      }
+    }
+    return avatarUrls;
+  }
+
+  /**
+   * Checked by comparing what the API returns, not by trusting the assignment code. The hash in a
+   * URL is of the uploaded bytes, so two people with the same hash hold the same picture - however
+   * different their URLs otherwise are, since each sits under its own person's path.
+   */
+  @Test
+  @DisplayName("most generated people have an avatar, and no two people share one")
+  void avatarsAreAssignedAndNeverShared() {
+    final List<String> avatarUrls = fetchAvatarUrls();
+    final int people =
+        client
+            .execute("query { workspace { people { id } } }")
+            .get("workspace")
+            .get("people")
+            .size();
+
+    // Nine in ten generated people get one; the reserved accounts get none. A rate, not a count.
+    assertTrue(
+        avatarUrls.size() >= people * 3 / 4 && avatarUrls.size() < people,
+        "expected most but not all of "
+            + people
+            + " people to have an avatar, got "
+            + avatarUrls.size());
+
+    final List<String> hashes = new ArrayList<>();
+    for (final String avatarUrl : avatarUrls) {
+      final Matcher matcher = AVATAR_HASH.matcher(avatarUrl);
+      assertTrue(matcher.find(), "not an avatar URL in the expected shape: " + avatarUrl);
+      hashes.add(matcher.group(1));
+    }
+    assertEquals(
+        hashes.size(), Set.copyOf(hashes).size(), "the same image was given to two people");
+  }
+
+  /**
+   * The check that would have caught the original bug. A client falls back to initials when an
+   * avatar fails to load, so an avatarUrl being present proves nothing - only fetching it does.
+   * Every one, not a sample: the failure this guards against was total, but a partial one would
+   * look the same from any page that happened to show working avatars.
+   */
+  @Test
+  @DisplayName("every avatar URL serves a real image")
+  void everyAvatarIsActuallyServed() throws IOException, InterruptedException {
+    final List<String> avatarUrls = fetchAvatarUrls();
+    assertTrue(!avatarUrls.isEmpty(), "seeding must have set at least one avatar");
+
+    try (HttpClient http = HttpClient.newHttpClient()) {
+      for (final String avatarUrl : avatarUrls) {
+        final HttpResponse<byte[]> response =
+            http.send(
+                HttpRequest.newBuilder(URI.create(avatarUrl)).GET().build(),
+                HttpResponse.BodyHandlers.ofByteArray());
+        assertEquals(200, response.statusCode(), avatarUrl);
+        assertEquals(
+            "image/jpeg", response.headers().firstValue("Content-Type").orElse(""), avatarUrl);
+        final BufferedImage image = ImageIO.read(new ByteArrayInputStream(response.body()));
+        assertTrue(image != null && image.getWidth() == 256 && image.getHeight() == 256, avatarUrl);
       }
     }
   }

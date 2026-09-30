@@ -196,7 +196,8 @@ final class DemoData {
    * are created, because there are already enough people to book meetings with.
    */
   static int topUpPeople(final GraphQlClient client, final int target, final Random random) {
-    final int existing = fetchPersonIds(client).size();
+    final List<String> existingAvatarUrls = fetchAvatarUrls(client);
+    final int existing = existingAvatarUrls.size();
     final int toCreate = Math.max(0, target - existing);
     if (toCreate == 0) {
       System.out.println(
@@ -211,28 +212,72 @@ final class DemoData {
     // because this path had no acceptance coverage and the fake client mirrored the same wrong
     // shape back.
     final String mutation =
-        "mutation CreatePerson($name: String!, $photoUrl: String) { "
-            + "createPerson(name: $name, photoUrl: $photoUrl) { person { id name } errors } }";
-    // Random isn't safe for concurrent use, so the names and avatar photos are drawn up front,
+        "mutation CreatePerson($name: String!) { "
+            + "createPerson(name: $name) { person { id name } errors } }";
+    // Random isn't safe for concurrent use, so the names and avatars are drawn up front,
     // sequentially; only the network calls below run in parallel. The names are distinct by
     // construction, which is what lets the loop below index by position rather than by name.
     final List<String> names = SampleData.personNames(toCreate, random);
-    final List<String> photoUrls =
-        names.stream().map(name -> SampleData.avatarPhotoFor(name, random)).toList();
+    // Which images are taken is read back off the people who exist, never remembered - see
+    // AvatarPool. Drawn before anyone is created, so a pool too small for the batch fails here,
+    // with the environment untouched.
+    final Set<String> hashesInUse =
+        existingAvatarUrls.stream()
+            .map(AvatarPool::hashOf)
+            .flatMap(Optional::stream)
+            .collect(Collectors.toSet());
+    final List<AvatarPool.Avatar> avatars = AvatarPool.assign(toCreate, hashesInUse, random);
 
     runInParallel(
         IntStream.range(0, toCreate).boxed().toList(),
         i -> {
-          // A HashMap, not Map.of: a person with no avatar photo needs an explicit null for
-          // $photoUrl, which Map.of rejects.
-          final Map<String, Object> variables = new HashMap<>();
-          variables.put("name", names.get(i));
-          variables.put("photoUrl", photoUrls.get(i));
-          final JsonNode result = client.execute(mutation, variables);
+          final JsonNode result = client.execute(mutation, Map.of("name", names.get(i)));
           failIfErrors(result.get("createPerson"), "createPerson(" + names.get(i) + ")");
-          System.out.println("  " + result.get("createPerson").get("person").get("name").asText());
+          final JsonNode person = result.get("createPerson").get("person");
+          // createPerson takes no avatar. One is set the only way the API allows, which is the
+          // way the webapp will use too - so this path is the upload feature's standing test.
+          if (avatars.get(i) != null) {
+            uploadAvatar(client, person.get("id").asText(), avatars.get(i));
+          }
+          System.out.println("  " + person.get("name").asText());
         });
     return toCreate;
+  }
+
+  /**
+   * Sets a person's avatar through the API's three-call upload: ask for a presigned URL, PUT the
+   * image straight to S3, then confirm - at which point the API decodes, validates and re-encodes
+   * it. A rejection at any step fails the run rather than leaving someone quietly without the
+   * avatar they were assigned.
+   */
+  static void uploadAvatar(
+      final GraphQlClient client, final String personId, final AvatarPool.Avatar avatar) {
+    final JsonNode requested =
+        client
+            .execute(
+                "mutation RequestAvatarUpload($personId: ID!, $contentType: String!,"
+                    + " $contentLength: Int!) { requestAvatarUpload(personId: $personId,"
+                    + " contentType: $contentType, contentLength: $contentLength) {"
+                    + " upload { uploadId url } errors } }",
+                Map.of(
+                    "personId", personId,
+                    "contentType", AvatarPool.CONTENT_TYPE,
+                    "contentLength", avatar.bytes().length))
+            .get("requestAvatarUpload");
+    failIfErrors(requested, "requestAvatarUpload(" + avatar.resourceName() + ")");
+    final JsonNode upload = requested.get("upload");
+
+    client.put(upload.get("url").asText(), AvatarPool.CONTENT_TYPE, avatar.bytes());
+
+    final JsonNode confirmed =
+        client
+            .execute(
+                "mutation ConfirmAvatarUpload($personId: ID!, $uploadId: ID!) {"
+                    + " confirmAvatarUpload(personId: $personId, uploadId: $uploadId) {"
+                    + " person { id avatarUrl } errors } }",
+                Map.of("personId", personId, "uploadId", upload.get("uploadId").asText()))
+            .get("confirmAvatarUpload");
+    failIfErrors(confirmed, "confirmAvatarUpload(" + avatar.resourceName() + ")");
   }
 
   // --- Rooms ----------------------------------------------------------------------------
@@ -663,6 +708,20 @@ final class DemoData {
               room.get("id").asText(), room.get("name").asText(), room.get("capacity").asInt()));
     }
     return rooms;
+  }
+
+  /**
+   * Every person's {@code avatarUrl}, one entry per person and null for those with none - so the
+   * size is the headcount, and the non-null values say which avatars are taken.
+   */
+  private static List<String> fetchAvatarUrls(final GraphQlClient client) {
+    final JsonNode result = client.execute("query { workspace { people { id avatarUrl } } }");
+    final List<String> avatarUrls = new ArrayList<>();
+    for (final JsonNode person : result.get("workspace").get("people")) {
+      final JsonNode avatarUrl = person.get("avatarUrl");
+      avatarUrls.add(avatarUrl == null || avatarUrl.isNull() ? null : avatarUrl.asText());
+    }
+    return avatarUrls;
   }
 
   private static List<String> fetchPersonIds(final GraphQlClient client) {

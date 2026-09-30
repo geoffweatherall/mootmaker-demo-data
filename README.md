@@ -25,7 +25,7 @@ Four independent concerns, each of which does nothing once its target is already
 
 | Concern | Target | What makes it repeatable |
 |---|---|---|
-| People | `TARGET_PEOPLE` (default 100) | Creates the shortfall only |
+| People | `TARGET_PEOPLE` (default 100) | Creates the shortfall only. Nine in ten get an avatar - see [Avatars](#avatars) |
 | Rooms | `TARGET_ROOMS` (default 10) | Creates the shortfall only, never reusing an existing room's name |
 | Meetings | every weekday from `DAYS_IN_PAST` (default 7) behind today to `WEEKS_AHEAD` (default 6) ahead | Skips any day that already has a meeting |
 | Guaranteed meetings | every weekday in the same window, for each person in `/mootmaker/<env>/demo-data/guaranteed-person-ids` | Skips any day the person already organises or attends |
@@ -53,6 +53,38 @@ The people target counts **all** people, not just generated ones: `Person` expos
 linkage through the GraphQL API, so this tool genuinely cannot tell a demo person from a real
 signed-up one. In an environment where real sign-ups have passed the target, no demo people are
 created — there are already enough people to book meetings with.
+
+## Avatars
+
+Nine in ten generated people get an avatar; the rest are left without, so an environment shows the
+initials fallback too. **Nobody in an environment ever gets an image somebody else already has** -
+a run that would need more images than remain unused fails before creating anyone, rather than
+repeating one.
+
+The images are 200 PNGs bundled in [`impl/src/main/resources/avatars/`](impl/src/main/resources/avatars/).
+They are line drawings in DiceBear's **Notionists Neutral** style, whose design is
+[CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) (by Zoish) - public domain, no
+attribution owed. They are deliberately not photographs of anyone. DiceBear's licences are *per
+style*, and several other styles are CC BY 4.0, so a different style is a licensing decision and not
+just a cosmetic one.
+
+[`tools/generate-avatar-pool.sh`](tools/generate-avatar-pool.sh) regenerates them, and refuses to
+run against a style that is not CC0. It is authoring-time tooling: it needs Node, its output is
+committed, and nothing in the build, the jar or the Lambda runs it. Each image comes from a fixed
+seed (`mootmaker-001` to `mootmaker-200`), so the pool is reproducible rather than a directory of
+mystery bytes. The pool must stay comfortably larger than any `TARGET_PEOPLE`.
+
+**An avatar is set exactly the way the webapp would set one**: `createPerson`, then
+`requestAvatarUpload`, an HTTP `PUT` of the image to the presigned URL that returns, then
+`confirmAvatarUpload`. `createPerson` takes no avatar, so there is no other way. That makes every
+seeding run a test of the upload path, against images the API really does decode and re-encode.
+
+**Which images are taken is read back from the API, never remembered.** mootmaker-api keys each
+avatar by the SHA-256 of the bytes that were uploaded, and that hash is the last path segment of
+`Person.avatarUrl`. [`AvatarPool`](impl/src/main/java/com/mootmaker/demodata/AvatarPool.java) hashes
+its own files, and an image is in use exactly when its hash appears in some person's URL. Only that
+segment is compared - the rest of the URL differs per environment and per person. So the rule holds
+across runs and redeploys, with nothing stored here.
 
 ## Running it
 
@@ -143,8 +175,8 @@ exercise it elsewhere.
 
 ## Everything it writes goes through the API
 
-This component holds no DynamoDB code at all. It creates data by calling `createPerson`,
-`createRoom` and `createMeeting` exactly as the webapp would, which makes generated demo data proof
+This component holds no DynamoDB or S3 code at all. It creates data by calling `createPerson`,
+`createRoom`, `createMeeting` and the avatar upload mutations exactly as the webapp would, which makes generated demo data proof
 that the API's own validation accepts it. Writing directly to DynamoDB would be faster and would let
 it construct states the API rejects — which is exactly why it doesn't.
 
