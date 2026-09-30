@@ -1,0 +1,2007 @@
+{
+  "model": "stable-diffusion-v1-5/stable-diffusion-v1-5",
+  "steps": 25,
+  "guidance": 7.0,
+  "size": [
+    512,
+    768
+  ],
+  "scheduler": "DPMSolverMultistep, karras sigmas",
+  "negative": "cartoon, illustration, painting, drawing, 3d render, anime, deformed, disfigured, blurry, lowres, bad anatomy, extra limbs, hands, hand on face, fingers, arm raised, multiple people, two people, cropped head, watermark, text, signature",
+  "crop": "nose-centred square, 1.8x YuNet face width, resized to 512",
+  "images": {
+    "man-1": {
+      "sex": "man",
+      "age": 27,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 27 year old white European man with receding blond hair, wearing a denim shirt, centered in the frame, facing the camera, a gentle smile, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 100100,
+      "failed_seeds": []
+    },
+    "man-2": {
+      "sex": "man",
+      "age": 28,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 28 year old white European man with curly black hair, wearing a dark sweater, centered in the frame, facing the camera, a confident smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 100202,
+      "failed_seeds": [
+        100200,
+        100201
+      ]
+    },
+    "man-3": {
+      "sex": "man",
+      "age": 60,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 60 year old white European man with receding grey hair, wearing a denim shirt, centered in the frame, facing the camera, a friendly smile, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 100303,
+      "failed_seeds": [
+        100300,
+        100301,
+        100302
+      ]
+    },
+    "man-4": {
+      "sex": "man",
+      "age": 64,
+      "ethnicity": "South Asian",
+      "prompt": "upper body portrait photograph of a 64 year old South Asian man with a shaved head and glasses, wearing a navy suit jacket, centered in the frame, facing the camera, a gentle smile, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 100401,
+      "failed_seeds": [
+        100400
+      ]
+    },
+    "man-5": {
+      "sex": "man",
+      "age": 56,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 56 year old white European man with short blond hair and glasses, wearing a dark sweater, centered in the frame, head turned slightly, looking at the camera, a confident smile, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 100500,
+      "failed_seeds": []
+    },
+    "man-6": {
+      "sex": "man",
+      "age": 29,
+      "ethnicity": "East Asian",
+      "prompt": "upper body portrait photograph of a 29 year old East Asian man with cropped black hair, wearing a green polo shirt, centered in the frame, head turned slightly, looking at the camera, a warm closed-mouth smile, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 100601,
+      "failed_seeds": [
+        100600
+      ]
+    },
+    "man-7": {
+      "sex": "man",
+      "age": 28,
+      "ethnicity": "South Asian",
+      "prompt": "upper body portrait photograph of a 28 year old South Asian man with short black hair and a trimmed beard, wearing a light blue shirt, centered in the frame, facing the camera, a friendly smile, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 100700,
+      "failed_seeds": []
+    },
+    "man-8": {
+      "sex": "man",
+      "age": 27,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 27 year old white European man with short light brown hair, wearing a black t-shirt under a blazer, centered in the frame, facing the camera, a slight smile, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 100802,
+      "failed_seeds": [
+        100800,
+        100801
+      ]
+    },
+    "man-9": {
+      "sex": "man",
+      "age": 49,
+      "ethnicity": "Black",
+      "prompt": "upper body portrait photograph of a 49 year old Black man with short twists, wearing a white shirt, centered in the frame, facing the camera, a relaxed neutral expression, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 100903,
+      "failed_seeds": [
+        100900,
+        100901,
+        100902
+      ]
+    },
+    "man-10": {
+      "sex": "man",
+      "age": 63,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 63 year old white European man with side-parted black hair, wearing a navy suit jacket, centered in the frame, facing the camera, a relaxed neutral expression, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 101001,
+      "failed_seeds": [
+        101000
+      ]
+    },
+    "man-11": {
+      "sex": "man",
+      "age": 60,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 60 year old white European man with short grey hair, wearing a black t-shirt under a blazer, centered in the frame, facing the camera, a gentle smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 101101,
+      "failed_seeds": [
+        101100
+      ]
+    },
+    "man-12": {
+      "sex": "man",
+      "age": 32,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 32 year old white European man with short red hair, wearing a grey sweater, centered in the frame, facing the camera, a warm closed-mouth smile, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "failed_seeds": [],
+      "rejected_seeds": [
+        101200
+      ],
+      "seed": 101201
+    },
+    "man-13": {
+      "sex": "man",
+      "age": 46,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 46 year old white European man with short dark brown hair, wearing a blue checked shirt, centered in the frame, facing the camera, a gentle smile, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 101301,
+      "failed_seeds": [
+        101300
+      ]
+    },
+    "man-14": {
+      "sex": "man",
+      "age": 60,
+      "ethnicity": "South Asian",
+      "prompt": "upper body portrait photograph of a 60 year old South Asian man with a shaved head and a trimmed beard, wearing a navy quarter-zip jumper, centered in the frame, facing the camera, a slight smile, plain light grey studio background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 101400,
+      "failed_seeds": []
+    },
+    "man-15": {
+      "sex": "man",
+      "age": 60,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 60 year old white European man with curly blond hair, wearing a blue checked shirt, centered in the frame, head turned slightly, looking at the camera, a gentle smile, plain light grey studio background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 101500,
+      "failed_seeds": []
+    },
+    "man-16": {
+      "sex": "man",
+      "age": 46,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 46 year old white European man with short light brown hair, wearing a black t-shirt under a blazer, centered in the frame, facing the camera, a gentle smile, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "failed_seeds": [
+        101601,
+        101602
+      ],
+      "rejected_seeds": [
+        101600
+      ],
+      "seed": 101603
+    },
+    "man-17": {
+      "sex": "man",
+      "age": 63,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 63 year old white European man with cropped brown hair and a short beard, wearing a navy quarter-zip jumper, centered in the frame, head turned slightly, looking at the camera, a slight smile, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 101701,
+      "failed_seeds": [
+        101700
+      ]
+    },
+    "man-18": {
+      "sex": "man",
+      "age": 49,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 49 year old white European man with receding blond hair, wearing a tweed jacket, centered in the frame, facing the camera, a friendly smile, plain light grey studio background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 101800,
+      "failed_seeds": []
+    },
+    "man-19": {
+      "sex": "man",
+      "age": 49,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 49 year old white European man with receding light brown hair, wearing an open-collar grey shirt, centered in the frame, facing the camera, a confident smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 101905,
+      "failed_seeds": [
+        101900,
+        101901,
+        101902,
+        101903,
+        101904
+      ]
+    },
+    "man-20": {
+      "sex": "man",
+      "age": 36,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 36 year old white European man with cropped blond hair and a short beard, wearing a grey sweater, centered in the frame, head turned slightly, looking at the camera, a relaxed neutral expression, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 102004,
+      "failed_seeds": [
+        102000,
+        102001,
+        102002,
+        102003
+      ]
+    },
+    "man-21": {
+      "sex": "man",
+      "age": 50,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 50 year old white European man with receding brown hair and glasses, wearing a navy quarter-zip jumper, centered in the frame, head turned slightly, looking at the camera, a gentle smile, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 102101,
+      "failed_seeds": [
+        102100
+      ]
+    },
+    "man-22": {
+      "sex": "man",
+      "age": 55,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 55 year old white European man with short black hair, wearing a charcoal suit jacket, centered in the frame, head turned slightly, looking at the camera, a slight smile, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 102200,
+      "failed_seeds": []
+    },
+    "man-23": {
+      "sex": "man",
+      "age": 33,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 33 year old white European man with short light brown hair and a moustache, wearing a grey sweater, centered in the frame, head turned slightly, looking at the camera, a slight smile, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 102301,
+      "failed_seeds": [
+        102300
+      ]
+    },
+    "man-24": {
+      "sex": "man",
+      "age": 49,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 49 year old white European man with cropped blond hair and a short beard and glasses, wearing a grey sweater, centered in the frame, facing the camera, a confident smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 102401,
+      "failed_seeds": [
+        102400
+      ]
+    },
+    "man-25": {
+      "sex": "man",
+      "age": 42,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 42 year old white European man with side-parted dark brown hair and a trimmed beard, wearing a navy quarter-zip jumper, centered in the frame, facing the camera, a gentle smile, plain light grey studio background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 102503,
+      "failed_seeds": [
+        102500,
+        102501,
+        102502
+      ]
+    },
+    "man-26": {
+      "sex": "man",
+      "age": 57,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 57 year old white European man with thinning grey hair, wearing a white shirt, centered in the frame, facing the camera, a slight smile, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 102602,
+      "failed_seeds": [
+        102600,
+        102601
+      ]
+    },
+    "man-27": {
+      "sex": "man",
+      "age": 53,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 53 year old white European man with short grey hair, wearing an open-collar grey shirt, centered in the frame, head turned slightly, looking at the camera, a relaxed neutral expression, plain light grey studio background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 102707,
+      "failed_seeds": [
+        102700,
+        102701,
+        102702,
+        102703,
+        102704,
+        102705,
+        102706
+      ]
+    },
+    "man-28": {
+      "sex": "man",
+      "age": 23,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 23 year old white European man with side-parted blond hair and stubble, wearing a dark sweater, centered in the frame, head turned slightly, looking at the camera, a slight smile, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 102800,
+      "failed_seeds": []
+    },
+    "man-29": {
+      "sex": "man",
+      "age": 64,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 64 year old white European man with receding grey hair, wearing a dark sweater, centered in the frame, head turned slightly, looking at the camera, a warm closed-mouth smile, plain light grey studio background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 102903,
+      "failed_seeds": [
+        102900,
+        102901,
+        102902
+      ]
+    },
+    "man-30": {
+      "sex": "man",
+      "age": 43,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 43 year old white European man with short brown hair, wearing a denim shirt, centered in the frame, facing the camera, a confident smile, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 103004,
+      "failed_seeds": [
+        103000,
+        103001,
+        103002,
+        103003
+      ]
+    },
+    "man-31": {
+      "sex": "man",
+      "age": 49,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 49 year old white European man with side-parted black hair, wearing a denim shirt, centered in the frame, facing the camera, a confident smile, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 103102,
+      "failed_seeds": [
+        103100,
+        103101
+      ]
+    },
+    "man-32": {
+      "sex": "man",
+      "age": 34,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 34 year old white European man with short red hair and a short beard, wearing a dark sweater, centered in the frame, facing the camera, a warm closed-mouth smile, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "failed_seeds": [
+        103200,
+        103201,
+        103203,
+        103204,
+        103205,
+        103206
+      ],
+      "rejected_seeds": [
+        103202
+      ],
+      "seed": 103207
+    },
+    "man-33": {
+      "sex": "man",
+      "age": 51,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 51 year old white European man with side-parted blond hair and stubble, wearing a denim shirt, centered in the frame, facing the camera, a gentle smile, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 103300,
+      "failed_seeds": []
+    },
+    "man-34": {
+      "sex": "man",
+      "age": 57,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 57 year old white European man with curly blond hair and a moustache, wearing a light blue shirt, centered in the frame, head turned slightly, looking at the camera, a warm closed-mouth smile, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 103400,
+      "failed_seeds": []
+    },
+    "man-35": {
+      "sex": "man",
+      "age": 38,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 38 year old white European man with curly red hair and glasses, wearing a charcoal suit jacket, centered in the frame, facing the camera, a confident smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 103502,
+      "failed_seeds": [
+        103500,
+        103501
+      ]
+    },
+    "man-36": {
+      "sex": "man",
+      "age": 58,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 58 year old white European man with short grey hair and glasses, wearing a denim shirt, centered in the frame, head turned slightly, looking at the camera, a relaxed neutral expression, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 103603,
+      "failed_seeds": [
+        103600,
+        103601,
+        103602
+      ]
+    },
+    "man-37": {
+      "sex": "man",
+      "age": 57,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 57 year old white European man with receding grey hair and a short beard and glasses, wearing a white shirt, centered in the frame, facing the camera, a friendly smile, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 103703,
+      "failed_seeds": [
+        103700,
+        103701,
+        103702
+      ]
+    },
+    "man-38": {
+      "sex": "man",
+      "age": 48,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 48 year old white European man with side-parted dark brown hair, wearing a grey sweater, centered in the frame, head turned slightly, looking at the camera, a confident smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 103800,
+      "failed_seeds": []
+    },
+    "man-39": {
+      "sex": "man",
+      "age": 27,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 27 year old white European man with short red hair, wearing a light blue shirt, centered in the frame, facing the camera, a friendly smile, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 103900,
+      "failed_seeds": []
+    },
+    "man-40": {
+      "sex": "man",
+      "age": 63,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 63 year old white European man with side-parted black hair, wearing an open-collar grey shirt, centered in the frame, facing the camera, a gentle smile, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 104001,
+      "failed_seeds": [
+        104000
+      ]
+    },
+    "man-41": {
+      "sex": "man",
+      "age": 49,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 49 year old white European man with curly dark brown hair, wearing a denim shirt, centered in the frame, facing the camera, a slight smile, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 104101,
+      "failed_seeds": [
+        104100
+      ]
+    },
+    "man-42": {
+      "sex": "man",
+      "age": 38,
+      "ethnicity": "East Asian",
+      "prompt": "upper body portrait photograph of a 38 year old East Asian man with cropped black hair, wearing a denim shirt, centered in the frame, facing the camera, a relaxed neutral expression, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 104200,
+      "failed_seeds": []
+    },
+    "man-43": {
+      "sex": "man",
+      "age": 64,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 64 year old white European man with short grey hair and glasses, wearing a grey sweater, centered in the frame, facing the camera, a confident smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 104301,
+      "failed_seeds": [
+        104300
+      ]
+    },
+    "man-44": {
+      "sex": "man",
+      "age": 44,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 44 year old white European man with short red hair and a trimmed beard, wearing a navy quarter-zip jumper, centered in the frame, facing the camera, a confident smile, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 104400,
+      "failed_seeds": []
+    },
+    "man-45": {
+      "sex": "man",
+      "age": 39,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 39 year old white European man with curly red hair, wearing a blue checked shirt, centered in the frame, facing the camera, a slight smile, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 104500,
+      "failed_seeds": []
+    },
+    "man-46": {
+      "sex": "man",
+      "age": 32,
+      "ethnicity": "South Asian",
+      "prompt": "upper body portrait photograph of a 32 year old South Asian man with cropped black hair and a moustache, wearing a charcoal suit jacket, centered in the frame, facing the camera, a confident smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 104602,
+      "failed_seeds": [
+        104600,
+        104601
+      ]
+    },
+    "man-47": {
+      "sex": "man",
+      "age": 41,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 41 year old white European man with cropped brown hair, wearing a denim shirt, centered in the frame, facing the camera, a gentle smile, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 104702,
+      "failed_seeds": [
+        104700,
+        104701
+      ]
+    },
+    "man-48": {
+      "sex": "man",
+      "age": 54,
+      "ethnicity": "South Asian",
+      "prompt": "upper body portrait photograph of a 54 year old South Asian man with cropped black hair, wearing a black t-shirt under a blazer, centered in the frame, facing the camera, a confident smile, plain light grey studio background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 104802,
+      "failed_seeds": [
+        104800,
+        104801
+      ]
+    },
+    "man-49": {
+      "sex": "man",
+      "age": 49,
+      "ethnicity": "East Asian",
+      "prompt": "upper body portrait photograph of a 49 year old East Asian man with cropped black hair, wearing a denim shirt, centered in the frame, head turned slightly, looking at the camera, a warm closed-mouth smile, plain light grey studio background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 104902,
+      "failed_seeds": [
+        104900,
+        104901
+      ]
+    },
+    "man-50": {
+      "sex": "man",
+      "age": 46,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 46 year old white European man with short brown hair and stubble, wearing a tweed jacket, centered in the frame, head turned slightly, looking at the camera, a relaxed neutral expression, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 105000,
+      "failed_seeds": []
+    },
+    "man-51": {
+      "sex": "man",
+      "age": 31,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 31 year old white European man with receding red hair, wearing a green polo shirt, centered in the frame, facing the camera, a relaxed neutral expression, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 105105,
+      "failed_seeds": [
+        105100,
+        105101,
+        105102,
+        105103,
+        105104
+      ]
+    },
+    "man-52": {
+      "sex": "man",
+      "age": 60,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 60 year old white European man with side-parted dark brown hair, wearing an open-collar grey shirt, centered in the frame, facing the camera, a gentle smile, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 105201,
+      "failed_seeds": [
+        105200
+      ]
+    },
+    "man-53": {
+      "sex": "man",
+      "age": 39,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 39 year old white European man with curly blond hair, wearing a light blue shirt, centered in the frame, head turned slightly, looking at the camera, a confident smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 105301,
+      "failed_seeds": [
+        105300
+      ]
+    },
+    "man-54": {
+      "sex": "man",
+      "age": 31,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 31 year old white European man with short blond hair and a trimmed beard, wearing an open-collar grey shirt, centered in the frame, facing the camera, a gentle smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "failed_seeds": [
+        105401,
+        105402
+      ],
+      "rejected_seeds": [
+        105400
+      ],
+      "seed": 105403
+    },
+    "man-55": {
+      "sex": "man",
+      "age": 32,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 32 year old white European man with curly dark brown hair, wearing a grey sweater, centered in the frame, head turned slightly, looking at the camera, a relaxed neutral expression, plain light grey studio background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 105500,
+      "failed_seeds": []
+    },
+    "man-56": {
+      "sex": "man",
+      "age": 41,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 41 year old white European man with receding light brown hair and a short beard, wearing a denim shirt, centered in the frame, facing the camera, a relaxed neutral expression, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "failed_seeds": [
+        105600,
+        105602
+      ],
+      "rejected_seeds": [
+        105601,
+        105603
+      ],
+      "seed": 105604
+    },
+    "man-57": {
+      "sex": "man",
+      "age": 23,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 23 year old white European man with curly light brown hair, wearing a light blue shirt, centered in the frame, facing the camera, a slight smile, plain light grey studio background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 105700,
+      "failed_seeds": []
+    },
+    "man-58": {
+      "sex": "man",
+      "age": 49,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 49 year old white European man with receding brown hair and stubble, wearing a blue checked shirt, centered in the frame, facing the camera, a relaxed neutral expression, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 105802,
+      "failed_seeds": [
+        105800,
+        105801
+      ]
+    },
+    "man-59": {
+      "sex": "man",
+      "age": 60,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 60 year old white European man with receding black hair and glasses, wearing a black t-shirt under a blazer, centered in the frame, facing the camera, a friendly smile, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 105900,
+      "failed_seeds": []
+    },
+    "man-60": {
+      "sex": "man",
+      "age": 30,
+      "ethnicity": "Black",
+      "prompt": "upper body portrait photograph of a 30 year old Black man with short twists and glasses, wearing a tweed jacket, centered in the frame, head turned slightly, looking at the camera, a friendly smile, plain light grey studio background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 106001,
+      "failed_seeds": [
+        106000
+      ]
+    },
+    "man-61": {
+      "sex": "man",
+      "age": 53,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 53 year old white European man with a shaved head, wearing a light blue shirt, centered in the frame, head turned slightly, looking at the camera, a warm closed-mouth smile, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 106101,
+      "failed_seeds": [
+        106100
+      ]
+    },
+    "man-62": {
+      "sex": "man",
+      "age": 29,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 29 year old white European man with side-parted dark brown hair and stubble and glasses, wearing a dark sweater, centered in the frame, facing the camera, a slight smile, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "failed_seeds": [
+        106202
+      ],
+      "rejected_seeds": [
+        106200,
+        106201
+      ],
+      "seed": 106203
+    },
+    "man-63": {
+      "sex": "man",
+      "age": 58,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 58 year old white European man with thinning grey hair, wearing a grey sweater, centered in the frame, facing the camera, a confident smile, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 106300,
+      "failed_seeds": []
+    },
+    "man-64": {
+      "sex": "man",
+      "age": 37,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 37 year old white European man with curly dark brown hair and stubble, wearing a denim shirt, centered in the frame, head turned slightly, looking at the camera, a warm closed-mouth smile, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 106400,
+      "failed_seeds": []
+    },
+    "man-65": {
+      "sex": "man",
+      "age": 23,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 23 year old white European man with side-parted blond hair, wearing a charcoal suit jacket, centered in the frame, head turned slightly, looking at the camera, a confident smile, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 106501,
+      "failed_seeds": [
+        106500
+      ]
+    },
+    "man-66": {
+      "sex": "man",
+      "age": 38,
+      "ethnicity": "South Asian",
+      "prompt": "upper body portrait photograph of a 38 year old South Asian man with cropped black hair, wearing an open-collar grey shirt, centered in the frame, head turned slightly, looking at the camera, a friendly smile, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 106603,
+      "failed_seeds": [
+        106600,
+        106601,
+        106602
+      ]
+    },
+    "man-67": {
+      "sex": "man",
+      "age": 56,
+      "ethnicity": "East Asian",
+      "prompt": "upper body portrait photograph of a 56 year old East Asian man with short black hair, wearing a navy suit jacket, centered in the frame, facing the camera, a friendly smile, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 106700,
+      "failed_seeds": []
+    },
+    "man-68": {
+      "sex": "man",
+      "age": 40,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 40 year old white European man with cropped blond hair, wearing a light blue shirt, centered in the frame, head turned slightly, looking at the camera, a relaxed neutral expression, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 106802,
+      "failed_seeds": [
+        106800,
+        106801
+      ]
+    },
+    "man-69": {
+      "sex": "man",
+      "age": 50,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 50 year old white European man with cropped light brown hair and a moustache and glasses, wearing a blue checked shirt, centered in the frame, head turned slightly, looking at the camera, a relaxed neutral expression, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 106902,
+      "failed_seeds": [
+        106900,
+        106901
+      ]
+    },
+    "man-70": {
+      "sex": "man",
+      "age": 47,
+      "ethnicity": "Black",
+      "prompt": "upper body portrait photograph of a 47 year old Black man with short cropped hair, wearing a navy quarter-zip jumper, centered in the frame, head turned slightly, looking at the camera, a friendly smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 107000,
+      "failed_seeds": []
+    },
+    "man-71": {
+      "sex": "man",
+      "age": 29,
+      "ethnicity": "Black",
+      "prompt": "upper body portrait photograph of a 29 year old Black man with short twists, wearing a black t-shirt under a blazer, centered in the frame, facing the camera, a confident smile, plain light grey studio background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 107102,
+      "failed_seeds": [
+        107100,
+        107101
+      ]
+    },
+    "man-72": {
+      "sex": "man",
+      "age": 45,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 45 year old white European man with side-parted blond hair, wearing a white shirt, centered in the frame, facing the camera, a confident smile, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 107200,
+      "failed_seeds": []
+    },
+    "man-73": {
+      "sex": "man",
+      "age": 48,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 48 year old white European man with receding brown hair and glasses, wearing a charcoal suit jacket, centered in the frame, facing the camera, a slight smile, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 107300,
+      "failed_seeds": []
+    },
+    "man-74": {
+      "sex": "man",
+      "age": 40,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 40 year old white European man with short dark brown hair and glasses, wearing a charcoal suit jacket, centered in the frame, facing the camera, a confident smile, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 107400,
+      "failed_seeds": []
+    },
+    "man-75": {
+      "sex": "man",
+      "age": 40,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 40 year old white European man with side-parted brown hair and a short beard, wearing a navy suit jacket, centered in the frame, facing the camera, a warm closed-mouth smile, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 107505,
+      "failed_seeds": [
+        107500,
+        107501,
+        107502,
+        107503,
+        107504
+      ]
+    },
+    "man-76": {
+      "sex": "man",
+      "age": 40,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 40 year old white European man with short dark brown hair, wearing a black t-shirt under a blazer, centered in the frame, head turned slightly, looking at the camera, a confident smile, plain light grey studio background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 107601,
+      "failed_seeds": [
+        107600
+      ]
+    },
+    "man-77": {
+      "sex": "man",
+      "age": 31,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 31 year old white European man with cropped light brown hair, wearing a black t-shirt under a blazer, centered in the frame, facing the camera, a gentle smile, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 107703,
+      "failed_seeds": [
+        107700,
+        107701,
+        107702
+      ]
+    },
+    "man-78": {
+      "failed_seeds": [
+        107800,
+        107801,
+        107802,
+        107803,
+        107804,
+        107805,
+        107806,
+        107807,
+        107808
+      ],
+      "sex": "man",
+      "age": 42,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 42 year old white European man with side-parted brown hair and a trimmed beard, wearing a navy quarter-zip jumper, centered in the frame, head turned slightly, looking at the camera, a friendly smile, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 107809
+    },
+    "man-79": {
+      "sex": "man",
+      "age": 33,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 33 year old white European man with receding blond hair, wearing a green polo shirt, centered in the frame, head turned slightly, looking at the camera, a gentle smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 107901,
+      "failed_seeds": [
+        107900
+      ]
+    },
+    "man-80": {
+      "sex": "man",
+      "age": 59,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 59 year old white European man with short blond hair and glasses, wearing a dark sweater, centered in the frame, facing the camera, a gentle smile, plain light grey studio background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 108002,
+      "failed_seeds": [
+        108000,
+        108001
+      ]
+    },
+    "man-81": {
+      "sex": "man",
+      "age": 50,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 50 year old white European man with short dark brown hair, wearing a light blue shirt, centered in the frame, facing the camera, a slight smile, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 108101,
+      "failed_seeds": [
+        108100
+      ]
+    },
+    "man-82": {
+      "sex": "man",
+      "age": 58,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 58 year old white European man with side-parted light brown hair, wearing a white shirt, centered in the frame, facing the camera, a gentle smile, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 108202,
+      "failed_seeds": [
+        108200,
+        108201
+      ]
+    },
+    "man-83": {
+      "sex": "man",
+      "age": 35,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 35 year old white European man with cropped red hair and a short beard, wearing a grey sweater, centered in the frame, facing the camera, a warm closed-mouth smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 108304,
+      "failed_seeds": [
+        108300,
+        108301,
+        108302,
+        108303
+      ]
+    },
+    "man-84": {
+      "sex": "man",
+      "age": 36,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 36 year old white European man with cropped red hair, wearing a black t-shirt under a blazer, centered in the frame, facing the camera, a slight smile, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 108401,
+      "failed_seeds": [
+        108400
+      ]
+    },
+    "man-85": {
+      "sex": "man",
+      "age": 40,
+      "ethnicity": "Black",
+      "prompt": "upper body portrait photograph of a 40 year old Black man with short twists and glasses, wearing a grey sweater, centered in the frame, head turned slightly, looking at the camera, a confident smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 108501,
+      "failed_seeds": [
+        108500
+      ]
+    },
+    "man-86": {
+      "sex": "man",
+      "age": 50,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 50 year old white European man with receding brown hair, wearing a grey sweater, centered in the frame, facing the camera, a slight smile, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 108600,
+      "failed_seeds": []
+    },
+    "man-87": {
+      "failed_seeds": [
+        108700,
+        108701,
+        108702,
+        108703,
+        108704,
+        108705,
+        108706,
+        108707,
+        108708
+      ],
+      "sex": "man",
+      "age": 45,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 45 year old white European man with cropped blond hair and stubble, wearing a blue checked shirt, centered in the frame, head turned slightly, looking at the camera, a friendly smile, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 108709
+    },
+    "man-88": {
+      "sex": "man",
+      "age": 37,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 37 year old white European man with receding black hair, wearing a dark sweater, centered in the frame, facing the camera, a gentle smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 108801,
+      "failed_seeds": [
+        108800
+      ]
+    },
+    "man-89": {
+      "sex": "man",
+      "age": 63,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 63 year old white European man with short grey hair and a short beard, wearing a tweed jacket, centered in the frame, head turned slightly, looking at the camera, a warm closed-mouth smile, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 108901,
+      "failed_seeds": [
+        108900
+      ]
+    },
+    "man-90": {
+      "sex": "man",
+      "age": 53,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 53 year old white European man with thinning grey hair, wearing a navy suit jacket, centered in the frame, head turned slightly, looking at the camera, a gentle smile, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 109000,
+      "failed_seeds": []
+    },
+    "man-91": {
+      "sex": "man",
+      "age": 42,
+      "ethnicity": "South Asian",
+      "prompt": "upper body portrait photograph of a 42 year old South Asian man with side-parted black hair and stubble, wearing a white shirt, centered in the frame, facing the camera, a slight smile, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 109100,
+      "failed_seeds": []
+    },
+    "man-92": {
+      "sex": "man",
+      "age": 45,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 45 year old white European man with cropped dark brown hair, wearing a blue checked shirt, centered in the frame, facing the camera, a friendly smile, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 109200,
+      "failed_seeds": []
+    },
+    "man-93": {
+      "sex": "man",
+      "age": 64,
+      "ethnicity": "South Asian",
+      "prompt": "upper body portrait photograph of a 64 year old South Asian man with cropped black hair, wearing a white shirt, centered in the frame, facing the camera, a gentle smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 109303,
+      "failed_seeds": [
+        109300,
+        109301,
+        109302
+      ]
+    },
+    "man-94": {
+      "sex": "man",
+      "age": 48,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 48 year old white European man with short blond hair, wearing an open-collar grey shirt, centered in the frame, facing the camera, a gentle smile, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 109402,
+      "failed_seeds": [
+        109400,
+        109401
+      ]
+    },
+    "man-95": {
+      "sex": "man",
+      "age": 57,
+      "ethnicity": "South Asian",
+      "prompt": "upper body portrait photograph of a 57 year old South Asian man with white hair, wearing a light blue shirt, centered in the frame, head turned slightly, looking at the camera, a relaxed neutral expression, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 109502,
+      "failed_seeds": [
+        109500,
+        109501
+      ]
+    },
+    "man-96": {
+      "sex": "man",
+      "age": 32,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 32 year old white European man with receding red hair, wearing a green polo shirt, centered in the frame, facing the camera, a friendly smile, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 109602,
+      "failed_seeds": [
+        109600,
+        109601
+      ]
+    },
+    "man-97": {
+      "sex": "man",
+      "age": 40,
+      "ethnicity": "East Asian",
+      "prompt": "upper body portrait photograph of a 40 year old East Asian man with side-parted black hair, wearing a black t-shirt under a blazer, centered in the frame, facing the camera, a gentle smile, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 109702,
+      "failed_seeds": [
+        109700,
+        109701
+      ]
+    },
+    "man-98": {
+      "sex": "man",
+      "age": 36,
+      "ethnicity": "South Asian",
+      "prompt": "upper body portrait photograph of a 36 year old South Asian man with cropped black hair, wearing a charcoal suit jacket, centered in the frame, head turned slightly, looking at the camera, a friendly smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 109800,
+      "failed_seeds": []
+    },
+    "man-99": {
+      "sex": "man",
+      "age": 31,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 31 year old white European man with receding black hair and a moustache, wearing a grey sweater, centered in the frame, facing the camera, a friendly smile, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 109901,
+      "failed_seeds": [
+        109900
+      ]
+    },
+    "man-100": {
+      "sex": "man",
+      "age": 58,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 58 year old white European man with short blond hair, wearing a dark sweater, centered in the frame, facing the camera, a friendly smile, plain light grey studio background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 110002,
+      "failed_seeds": [
+        110000,
+        110001
+      ]
+    },
+    "woman-1": {
+      "sex": "woman",
+      "age": 36,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 36 year old white European woman with wavy light brown hair, wearing a white shirt, centered in the frame, head turned slightly, looking at the camera, a confident smile, plain light grey studio background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 200100,
+      "failed_seeds": []
+    },
+    "woman-2": {
+      "sex": "woman",
+      "age": 58,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 58 year old white European woman with short auburn hair and glasses, wearing a black blazer, centered in the frame, facing the camera, a warm closed-mouth smile, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 200200,
+      "failed_seeds": []
+    },
+    "woman-3": {
+      "sex": "woman",
+      "age": 40,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 40 year old white European woman with wavy black hair and glasses, wearing a striped top, centered in the frame, facing the camera, a confident smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 200301,
+      "failed_seeds": [
+        200300
+      ]
+    },
+    "woman-4": {
+      "sex": "woman",
+      "age": 49,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 49 year old white European woman with long black hair, wearing a green sweater, centered in the frame, facing the camera, a gentle smile, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 200400,
+      "failed_seeds": []
+    },
+    "woman-5": {
+      "sex": "woman",
+      "age": 41,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 41 year old white European woman with long brown hair, wearing a light blue shirt, centered in the frame, facing the camera, a warm closed-mouth smile, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 200501,
+      "failed_seeds": [
+        200500
+      ]
+    },
+    "woman-6": {
+      "sex": "woman",
+      "age": 62,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 62 year old white European woman with short light brown hair and glasses, wearing a black turtleneck, centered in the frame, facing the camera, a confident smile, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 200602,
+      "failed_seeds": [
+        200600,
+        200601
+      ]
+    },
+    "woman-7": {
+      "sex": "woman",
+      "age": 34,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 34 year old white European woman with long black hair and glasses, wearing a navy blazer, centered in the frame, facing the camera, a friendly smile, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 200701,
+      "failed_seeds": [
+        200700
+      ]
+    },
+    "woman-8": {
+      "sex": "woman",
+      "age": 31,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 31 year old white European woman with tied back honey blonde hair and glasses, wearing a black blazer, centered in the frame, head turned slightly, looking at the camera, a friendly smile, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 200800,
+      "failed_seeds": []
+    },
+    "woman-9": {
+      "sex": "woman",
+      "age": 26,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 26 year old white European woman with short auburn hair, wearing a denim shirt, centered in the frame, facing the camera, a relaxed neutral expression, plain light grey studio background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 200900,
+      "failed_seeds": []
+    },
+    "woman-10": {
+      "sex": "woman",
+      "age": 64,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 64 year old white European woman with short brown hair, wearing a light blue shirt, centered in the frame, facing the camera, a gentle smile, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 201000,
+      "failed_seeds": []
+    },
+    "woman-11": {
+      "sex": "woman",
+      "age": 43,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 43 year old white European woman with long honey blonde hair and glasses, wearing a striped top, centered in the frame, facing the camera, a confident smile, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 201100,
+      "failed_seeds": []
+    },
+    "woman-12": {
+      "sex": "woman",
+      "age": 41,
+      "ethnicity": "South Asian",
+      "prompt": "upper body portrait photograph of a 41 year old South Asian woman with shoulder-length black hair, wearing a cream blouse, centered in the frame, facing the camera, a confident smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 201200,
+      "failed_seeds": []
+    },
+    "woman-13": {
+      "sex": "woman",
+      "age": 32,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 32 year old white European woman with long blonde hair, wearing a light blue shirt, centered in the frame, facing the camera, a gentle smile, plain light grey studio background, soft natural lighting, sharp focus, high detail skin",
+      "failed_seeds": [],
+      "rejected_seeds": [
+        201300
+      ],
+      "seed": 201301
+    },
+    "woman-14": {
+      "failed_seeds": [
+        201400,
+        201401,
+        201402,
+        201403,
+        201404,
+        201405,
+        201406,
+        201407,
+        201409
+      ],
+      "sex": "woman",
+      "age": 58,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 58 year old white European woman with short red hair, wearing a cream blouse, centered in the frame, facing the camera, a warm closed-mouth smile, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "rejected_seeds": [
+        201408
+      ],
+      "seed": 201410
+    },
+    "woman-15": {
+      "sex": "woman",
+      "age": 50,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 50 year old white European woman with long blonde hair, wearing a denim shirt, centered in the frame, facing the camera, a confident smile, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 201500,
+      "failed_seeds": []
+    },
+    "woman-16": {
+      "sex": "woman",
+      "age": 61,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 61 year old white European woman with short silver hair, wearing a denim shirt, centered in the frame, head turned slightly, looking at the camera, a friendly smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 201600,
+      "failed_seeds": []
+    },
+    "woman-17": {
+      "sex": "woman",
+      "age": 50,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 50 year old white European woman with wavy brown hair, wearing a grey cardigan, centered in the frame, facing the camera, a warm closed-mouth smile, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 201705,
+      "failed_seeds": [
+        201700,
+        201701,
+        201702,
+        201703,
+        201704
+      ]
+    },
+    "woman-18": {
+      "sex": "woman",
+      "age": 37,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 37 year old white European woman with short red hair, wearing a light blue shirt, centered in the frame, facing the camera, a relaxed neutral expression, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 201803,
+      "failed_seeds": [
+        201800,
+        201801,
+        201802
+      ]
+    },
+    "woman-19": {
+      "sex": "woman",
+      "age": 51,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 51 year old white European woman with long black hair, wearing a black turtleneck, centered in the frame, facing the camera, a warm closed-mouth smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 201900,
+      "failed_seeds": []
+    },
+    "woman-20": {
+      "sex": "woman",
+      "age": 34,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 34 year old white European woman with shoulder-length auburn hair, wearing a light blue shirt, centered in the frame, facing the camera, a confident smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 202000,
+      "failed_seeds": []
+    },
+    "woman-21": {
+      "sex": "woman",
+      "age": 31,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 31 year old white European woman with short blonde hair and glasses, wearing a burgundy jumper, centered in the frame, facing the camera, a warm closed-mouth smile, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 202101,
+      "failed_seeds": [
+        202100
+      ]
+    },
+    "woman-22": {
+      "sex": "woman",
+      "age": 47,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 47 year old white European woman with shoulder-length red hair, wearing a navy blazer, centered in the frame, facing the camera, a friendly smile, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 202200,
+      "failed_seeds": []
+    },
+    "woman-23": {
+      "sex": "woman",
+      "age": 63,
+      "ethnicity": "South Asian",
+      "prompt": "upper body portrait photograph of a 63 year old South Asian woman with wavy black hair, wearing a white shirt, centered in the frame, head turned slightly, looking at the camera, a warm closed-mouth smile, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 202300,
+      "failed_seeds": []
+    },
+    "woman-24": {
+      "sex": "woman",
+      "age": 29,
+      "ethnicity": "South Asian",
+      "prompt": "upper body portrait photograph of a 29 year old South Asian woman with shoulder-length black hair, wearing a black blazer, centered in the frame, facing the camera, a gentle smile, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 202401,
+      "failed_seeds": [
+        202400
+      ]
+    },
+    "woman-25": {
+      "sex": "woman",
+      "age": 51,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 51 year old white European woman with wavy honey blonde hair, wearing a burgundy jumper, centered in the frame, facing the camera, a slight smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 202500,
+      "failed_seeds": []
+    },
+    "woman-26": {
+      "sex": "woman",
+      "age": 31,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 31 year old white European woman with short light brown hair, wearing a teal blouse, centered in the frame, facing the camera, a gentle smile, plain light grey studio background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 202600,
+      "failed_seeds": []
+    },
+    "woman-27": {
+      "sex": "woman",
+      "age": 33,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 33 year old white European woman with long light brown hair and glasses, wearing a denim shirt, centered in the frame, facing the camera, a warm closed-mouth smile, plain light grey studio background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 202700,
+      "failed_seeds": []
+    },
+    "woman-28": {
+      "sex": "woman",
+      "age": 42,
+      "ethnicity": "South Asian",
+      "prompt": "upper body portrait photograph of a 42 year old South Asian woman with tied back black hair, wearing a denim shirt, centered in the frame, head turned slightly, looking at the camera, a gentle smile, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 202802,
+      "failed_seeds": [
+        202800,
+        202801
+      ]
+    },
+    "woman-29": {
+      "sex": "woman",
+      "age": 62,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 62 year old white European woman with short silver hair, wearing a black turtleneck, centered in the frame, head turned slightly, looking at the camera, a relaxed neutral expression, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 202900,
+      "failed_seeds": []
+    },
+    "woman-30": {
+      "sex": "woman",
+      "age": 38,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 38 year old white European woman with tied back brown hair, wearing a teal blouse, centered in the frame, facing the camera, a gentle smile, plain light grey studio background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 203002,
+      "failed_seeds": [
+        203000,
+        203001
+      ]
+    },
+    "woman-31": {
+      "sex": "woman",
+      "age": 55,
+      "ethnicity": "Black",
+      "prompt": "upper body portrait photograph of a 55 year old Black woman with short natural hair, wearing a striped top, centered in the frame, facing the camera, a friendly smile, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 203100,
+      "failed_seeds": []
+    },
+    "woman-32": {
+      "sex": "woman",
+      "age": 34,
+      "ethnicity": "South Asian",
+      "prompt": "upper body portrait photograph of a 34 year old South Asian woman with shoulder-length black hair, wearing a black turtleneck, centered in the frame, facing the camera, a relaxed neutral expression, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 203200,
+      "failed_seeds": []
+    },
+    "woman-33": {
+      "sex": "woman",
+      "age": 48,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 48 year old white European woman with short red hair, wearing a grey cardigan, centered in the frame, facing the camera, a slight smile, plain light grey studio background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 203304,
+      "failed_seeds": [
+        203300,
+        203301,
+        203302,
+        203303
+      ]
+    },
+    "woman-34": {
+      "sex": "woman",
+      "age": 57,
+      "ethnicity": "Black",
+      "prompt": "upper body portrait photograph of a 57 year old Black woman with short grey hair, wearing a burgundy jumper, centered in the frame, head turned slightly, looking at the camera, a friendly smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 203407,
+      "failed_seeds": [
+        203400,
+        203401,
+        203402,
+        203403,
+        203404,
+        203405,
+        203406
+      ]
+    },
+    "woman-35": {
+      "sex": "woman",
+      "age": 57,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 57 year old white European woman with wavy honey blonde hair and glasses, wearing a light blue shirt, centered in the frame, facing the camera, a relaxed neutral expression, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 203503,
+      "failed_seeds": [
+        203500,
+        203501,
+        203502
+      ]
+    },
+    "woman-36": {
+      "sex": "woman",
+      "age": 40,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 40 year old white European woman with short dark brown hair, wearing a striped top, centered in the frame, facing the camera, a warm closed-mouth smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 203604,
+      "failed_seeds": [
+        203600,
+        203601,
+        203602,
+        203603
+      ]
+    },
+    "woman-37": {
+      "sex": "woman",
+      "age": 60,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 60 year old white European woman with shoulder-length grey hair and glasses, wearing a light blue shirt, centered in the frame, facing the camera, a warm closed-mouth smile, plain light grey studio background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 203700,
+      "failed_seeds": []
+    },
+    "woman-38": {
+      "sex": "woman",
+      "age": 38,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 38 year old white European woman with wavy honey blonde hair, wearing a burgundy jumper, centered in the frame, head turned slightly, looking at the camera, a friendly smile, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 203802,
+      "failed_seeds": [
+        203800,
+        203801
+      ]
+    },
+    "woman-39": {
+      "sex": "woman",
+      "age": 24,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 24 year old white European woman with shoulder-length black hair, wearing a light blue shirt, centered in the frame, facing the camera, a warm closed-mouth smile, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 203900,
+      "failed_seeds": []
+    },
+    "woman-40": {
+      "sex": "woman",
+      "age": 59,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 59 year old white European woman with a silver bob haircut, wearing a navy blazer, centered in the frame, facing the camera, a relaxed neutral expression, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 204002,
+      "failed_seeds": [
+        204000,
+        204001
+      ]
+    },
+    "woman-41": {
+      "sex": "woman",
+      "age": 32,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 32 year old white European woman with tied back blonde hair, wearing a burgundy jumper, centered in the frame, head turned slightly, looking at the camera, a warm closed-mouth smile, plain light grey studio background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 204102,
+      "failed_seeds": [
+        204100,
+        204101
+      ]
+    },
+    "woman-42": {
+      "sex": "woman",
+      "age": 45,
+      "ethnicity": "South Asian",
+      "prompt": "upper body portrait photograph of a 45 year old South Asian woman with long black hair and glasses, wearing a charcoal blazer, centered in the frame, head turned slightly, looking at the camera, a friendly smile, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 204200,
+      "failed_seeds": []
+    },
+    "woman-43": {
+      "sex": "woman",
+      "age": 51,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 51 year old white European woman with shoulder-length auburn hair, wearing a charcoal blazer, centered in the frame, facing the camera, a gentle smile, plain light grey studio background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 204301,
+      "failed_seeds": [
+        204300
+      ]
+    },
+    "woman-44": {
+      "sex": "woman",
+      "age": 25,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 25 year old white European woman with tied back dark brown hair, wearing a teal blouse, centered in the frame, facing the camera, a gentle smile, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 204400,
+      "failed_seeds": []
+    },
+    "woman-45": {
+      "sex": "woman",
+      "age": 26,
+      "ethnicity": "South Asian",
+      "prompt": "upper body portrait photograph of a 26 year old South Asian woman with tied back black hair, wearing a mustard sweater, centered in the frame, facing the camera, a relaxed neutral expression, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 204500,
+      "failed_seeds": []
+    },
+    "woman-46": {
+      "sex": "woman",
+      "age": 49,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 49 year old white European woman with tied back brown hair, wearing a green sweater, centered in the frame, head turned slightly, looking at the camera, a relaxed neutral expression, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 204600,
+      "failed_seeds": []
+    },
+    "woman-47": {
+      "sex": "woman",
+      "age": 63,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 63 year old white European woman with short silver hair, wearing a cream blouse, centered in the frame, facing the camera, a slight smile, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 204700,
+      "failed_seeds": []
+    },
+    "woman-48": {
+      "sex": "woman",
+      "age": 29,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 29 year old white European woman with tied back brown hair and glasses, wearing a denim shirt, centered in the frame, facing the camera, a gentle smile, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 204801,
+      "failed_seeds": [
+        204800
+      ]
+    },
+    "woman-49": {
+      "sex": "woman",
+      "age": 50,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 50 year old white European woman with tied back auburn hair and glasses, wearing a white shirt, centered in the frame, facing the camera, a relaxed neutral expression, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 204901,
+      "failed_seeds": [
+        204900
+      ]
+    },
+    "woman-50": {
+      "sex": "woman",
+      "age": 52,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 52 year old white European woman with short grey hair, wearing a black blazer, centered in the frame, facing the camera, a relaxed neutral expression, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 205000,
+      "failed_seeds": []
+    },
+    "woman-51": {
+      "sex": "woman",
+      "age": 57,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 57 year old white European woman with short silver hair, wearing a denim shirt, centered in the frame, facing the camera, a gentle smile, plain light grey studio background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 205102,
+      "failed_seeds": [
+        205100,
+        205101
+      ]
+    },
+    "woman-52": {
+      "sex": "woman",
+      "age": 32,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 32 year old white European woman with tied back black hair, wearing a denim shirt, centered in the frame, head turned slightly, looking at the camera, a confident smile, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 205200,
+      "failed_seeds": []
+    },
+    "woman-53": {
+      "sex": "woman",
+      "age": 60,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 60 year old white European woman with shoulder-length grey hair and glasses, wearing a teal blouse, centered in the frame, facing the camera, a relaxed neutral expression, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 205301,
+      "failed_seeds": [
+        205300
+      ]
+    },
+    "woman-54": {
+      "sex": "woman",
+      "age": 48,
+      "ethnicity": "East Asian",
+      "prompt": "upper body portrait photograph of a 48 year old East Asian woman with tied back black hair and glasses, wearing a light blue shirt, centered in the frame, facing the camera, a confident smile, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 205400,
+      "failed_seeds": []
+    },
+    "woman-55": {
+      "sex": "woman",
+      "age": 49,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 49 year old white European woman with wavy auburn hair and glasses, wearing a light blue shirt, centered in the frame, facing the camera, a slight smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 205500,
+      "failed_seeds": []
+    },
+    "woman-56": {
+      "sex": "woman",
+      "age": 29,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 29 year old white European woman with long brown hair, wearing a denim shirt, centered in the frame, facing the camera, a friendly smile, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 205600,
+      "failed_seeds": []
+    },
+    "woman-57": {
+      "sex": "woman",
+      "age": 37,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 37 year old white European woman with short light brown hair, wearing a cream blouse, centered in the frame, head turned slightly, looking at the camera, a slight smile, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 205702,
+      "failed_seeds": [
+        205700,
+        205701
+      ]
+    },
+    "woman-58": {
+      "sex": "woman",
+      "age": 34,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 34 year old white European woman with wavy light brown hair, wearing a light blue shirt, centered in the frame, facing the camera, a slight smile, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 205800,
+      "failed_seeds": []
+    },
+    "woman-59": {
+      "sex": "woman",
+      "age": 38,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 38 year old white European woman with tied back honey blonde hair, wearing a grey cardigan, centered in the frame, facing the camera, a gentle smile, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 205901,
+      "failed_seeds": [
+        205900
+      ]
+    },
+    "woman-60": {
+      "sex": "woman",
+      "age": 27,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 27 year old white European woman with tied back dark brown hair, wearing a striped top, centered in the frame, facing the camera, a friendly smile, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 206000,
+      "failed_seeds": []
+    },
+    "woman-61": {
+      "sex": "woman",
+      "age": 64,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 64 year old white European woman with shoulder-length grey hair, wearing a light blue shirt, centered in the frame, facing the camera, a slight smile, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 206103,
+      "failed_seeds": [
+        206100,
+        206101,
+        206102
+      ]
+    },
+    "woman-62": {
+      "sex": "woman",
+      "age": 43,
+      "ethnicity": "South Asian",
+      "prompt": "upper body portrait photograph of a 43 year old South Asian woman with tied back black hair, wearing a cream blouse, centered in the frame, facing the camera, a slight smile, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 206200,
+      "failed_seeds": []
+    },
+    "woman-63": {
+      "sex": "woman",
+      "age": 53,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 53 year old white European woman with a silver bob haircut, wearing a black blazer, centered in the frame, facing the camera, a relaxed neutral expression, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 206300,
+      "failed_seeds": []
+    },
+    "woman-64": {
+      "sex": "woman",
+      "age": 26,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 26 year old white European woman with short honey blonde hair, wearing a light blue shirt, centered in the frame, facing the camera, a slight smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 206401,
+      "failed_seeds": [
+        206400
+      ]
+    },
+    "woman-65": {
+      "sex": "woman",
+      "age": 30,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 30 year old white European woman with wavy honey blonde hair, wearing a navy blazer, centered in the frame, facing the camera, a relaxed neutral expression, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 206502,
+      "failed_seeds": [
+        206500,
+        206501
+      ]
+    },
+    "woman-66": {
+      "sex": "woman",
+      "age": 60,
+      "ethnicity": "South Asian",
+      "prompt": "upper body portrait photograph of a 60 year old South Asian woman with a silver bob haircut, wearing a denim shirt, centered in the frame, facing the camera, a relaxed neutral expression, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 206602,
+      "failed_seeds": [
+        206600,
+        206601
+      ]
+    },
+    "woman-67": {
+      "sex": "woman",
+      "age": 42,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 42 year old white European woman with shoulder-length light brown hair and glasses, wearing a charcoal blazer, centered in the frame, facing the camera, a friendly smile, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 206701,
+      "failed_seeds": [
+        206700
+      ]
+    },
+    "woman-68": {
+      "sex": "woman",
+      "age": 44,
+      "ethnicity": "East Asian",
+      "prompt": "upper body portrait photograph of a 44 year old East Asian woman with shoulder-length black hair and glasses, wearing a grey cardigan, centered in the frame, facing the camera, a confident smile, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 206800,
+      "failed_seeds": []
+    },
+    "woman-69": {
+      "sex": "woman",
+      "age": 44,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 44 year old white European woman with shoulder-length dark brown hair and glasses, wearing a navy blazer, centered in the frame, facing the camera, a confident smile, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 206900,
+      "failed_seeds": []
+    },
+    "woman-70": {
+      "sex": "woman",
+      "age": 46,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 46 year old white European woman with tied back brown hair, wearing a teal blouse, centered in the frame, facing the camera, a friendly smile, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 207002,
+      "failed_seeds": [
+        207000,
+        207001
+      ]
+    },
+    "woman-71": {
+      "sex": "woman",
+      "age": 51,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 51 year old white European woman with shoulder-length honey blonde hair, wearing a grey cardigan, centered in the frame, facing the camera, a confident smile, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 207100,
+      "failed_seeds": []
+    },
+    "woman-72": {
+      "sex": "woman",
+      "age": 48,
+      "ethnicity": "Black",
+      "prompt": "upper body portrait photograph of a 48 year old Black woman with long straightened hair, wearing a black turtleneck, centered in the frame, head turned slightly, looking at the camera, a gentle smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 207201,
+      "failed_seeds": [
+        207200
+      ]
+    },
+    "woman-73": {
+      "sex": "woman",
+      "age": 50,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 50 year old white European woman with tied back auburn hair and glasses, wearing a denim shirt, centered in the frame, head turned slightly, looking at the camera, a relaxed neutral expression, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 207301,
+      "failed_seeds": [
+        207300
+      ]
+    },
+    "woman-74": {
+      "sex": "woman",
+      "age": 33,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 33 year old white European woman with wavy honey blonde hair, wearing a burgundy jumper, centered in the frame, facing the camera, a confident smile, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 207401,
+      "failed_seeds": [
+        207400
+      ]
+    },
+    "woman-75": {
+      "sex": "woman",
+      "age": 27,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 27 year old white European woman with short black hair, wearing a black turtleneck, centered in the frame, head turned slightly, looking at the camera, a relaxed neutral expression, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 207502,
+      "failed_seeds": [
+        207500,
+        207501
+      ]
+    },
+    "woman-76": {
+      "sex": "woman",
+      "age": 39,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 39 year old white European woman with short blonde hair, wearing a light blue shirt, centered in the frame, facing the camera, a warm closed-mouth smile, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 207600,
+      "failed_seeds": []
+    },
+    "woman-77": {
+      "sex": "woman",
+      "age": 29,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 29 year old white European woman with shoulder-length dark brown hair, wearing a black blazer, centered in the frame, facing the camera, a relaxed neutral expression, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 207700,
+      "failed_seeds": []
+    },
+    "woman-78": {
+      "sex": "woman",
+      "age": 39,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 39 year old white European woman with short red hair, wearing a cream blouse, centered in the frame, facing the camera, a relaxed neutral expression, plain light grey studio background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 207800,
+      "failed_seeds": []
+    },
+    "woman-79": {
+      "sex": "woman",
+      "age": 29,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 29 year old white European woman with shoulder-length light brown hair, wearing a black blazer, centered in the frame, head turned slightly, looking at the camera, a friendly smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 207900,
+      "failed_seeds": []
+    },
+    "woman-80": {
+      "sex": "woman",
+      "age": 56,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 56 year old white European woman with wavy light brown hair and glasses, wearing a black blazer, centered in the frame, facing the camera, a warm closed-mouth smile, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 208001,
+      "failed_seeds": [
+        208000
+      ]
+    },
+    "woman-81": {
+      "sex": "woman",
+      "age": 30,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 30 year old white European woman with shoulder-length red hair and glasses, wearing a striped top, centered in the frame, head turned slightly, looking at the camera, a warm closed-mouth smile, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 208101,
+      "failed_seeds": [
+        208100
+      ]
+    },
+    "woman-82": {
+      "sex": "woman",
+      "age": 50,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 50 year old white European woman with short auburn hair, wearing a denim shirt, centered in the frame, head turned slightly, looking at the camera, a confident smile, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 208200,
+      "failed_seeds": []
+    },
+    "woman-83": {
+      "sex": "woman",
+      "age": 40,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 40 year old white European woman with shoulder-length black hair, wearing a white shirt, centered in the frame, facing the camera, a warm closed-mouth smile, softly blurred office background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 208301,
+      "failed_seeds": [
+        208300
+      ]
+    },
+    "woman-84": {
+      "sex": "woman",
+      "age": 42,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 42 year old white European woman with shoulder-length auburn hair, wearing a teal blouse, centered in the frame, facing the camera, a confident smile, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 208401,
+      "failed_seeds": [
+        208400
+      ]
+    },
+    "woman-85": {
+      "sex": "woman",
+      "age": 48,
+      "ethnicity": "East Asian",
+      "prompt": "upper body portrait photograph of a 48 year old East Asian woman with tied back black hair and glasses, wearing a navy blazer, centered in the frame, facing the camera, a friendly smile, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 208500,
+      "failed_seeds": []
+    },
+    "woman-86": {
+      "sex": "woman",
+      "age": 63,
+      "ethnicity": "Black",
+      "prompt": "upper body portrait photograph of a 63 year old Black woman with long straightened hair, wearing a black turtleneck, centered in the frame, facing the camera, a relaxed neutral expression, plain light grey studio background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 208600,
+      "failed_seeds": []
+    },
+    "woman-87": {
+      "sex": "woman",
+      "age": 46,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 46 year old white European woman with short dark brown hair, wearing a black turtleneck, centered in the frame, facing the camera, a slight smile, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 208700,
+      "failed_seeds": []
+    },
+    "woman-88": {
+      "sex": "woman",
+      "age": 33,
+      "ethnicity": "South Asian",
+      "prompt": "upper body portrait photograph of a 33 year old South Asian woman with shoulder-length black hair, wearing a white shirt, centered in the frame, head turned slightly, looking at the camera, a relaxed neutral expression, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 208800,
+      "failed_seeds": []
+    },
+    "woman-89": {
+      "sex": "woman",
+      "age": 61,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 61 year old white European woman with long dark brown hair, wearing a striped top, centered in the frame, head turned slightly, looking at the camera, a friendly smile, plain light grey studio background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 208901,
+      "failed_seeds": [
+        208900
+      ]
+    },
+    "woman-90": {
+      "sex": "woman",
+      "age": 45,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 45 year old white European woman with wavy brown hair, wearing a white shirt, centered in the frame, head turned slightly, looking at the camera, a relaxed neutral expression, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 209002,
+      "failed_seeds": [
+        209000,
+        209001
+      ]
+    },
+    "woman-91": {
+      "sex": "woman",
+      "age": 38,
+      "ethnicity": "East Asian",
+      "prompt": "upper body portrait photograph of a 38 year old East Asian woman with wavy black hair and glasses, wearing a denim shirt, centered in the frame, facing the camera, a slight smile, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 209102,
+      "failed_seeds": [
+        209100,
+        209101
+      ]
+    },
+    "woman-92": {
+      "sex": "woman",
+      "age": 57,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 57 year old white European woman with shoulder-length grey hair, wearing a black turtleneck, centered in the frame, head turned slightly, looking at the camera, a warm closed-mouth smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 209203,
+      "failed_seeds": [
+        209200,
+        209201,
+        209202
+      ]
+    },
+    "woman-93": {
+      "sex": "woman",
+      "age": 59,
+      "ethnicity": "Black",
+      "prompt": "upper body portrait photograph of a 59 year old Black woman with shoulder-length grey hair, wearing a green sweater, centered in the frame, facing the camera, a confident smile, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 209300,
+      "failed_seeds": []
+    },
+    "woman-94": {
+      "sex": "woman",
+      "age": 51,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 51 year old white European woman with long red hair, wearing a mustard sweater, centered in the frame, facing the camera, a confident smile, plain neutral wall background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 209401,
+      "failed_seeds": [
+        209400
+      ]
+    },
+    "woman-95": {
+      "sex": "woman",
+      "age": 55,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 55 year old white European woman with shoulder-length dark brown hair, wearing a charcoal blazer, centered in the frame, facing the camera, a friendly smile, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 209502,
+      "failed_seeds": [
+        209500,
+        209501
+      ]
+    },
+    "woman-96": {
+      "sex": "woman",
+      "age": 60,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 60 year old white European woman with shoulder-length light brown hair, wearing a black turtleneck, centered in the frame, facing the camera, a warm closed-mouth smile, blurred bright window background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 209600,
+      "failed_seeds": []
+    },
+    "woman-97": {
+      "sex": "woman",
+      "age": 54,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 54 year old white European woman with short silver hair, wearing a grey cardigan, centered in the frame, facing the camera, a warm closed-mouth smile, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 209701,
+      "failed_seeds": [
+        209700
+      ]
+    },
+    "woman-98": {
+      "sex": "woman",
+      "age": 59,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 59 year old white European woman with wavy brown hair and glasses, wearing a burgundy jumper, centered in the frame, facing the camera, a gentle smile, blurred bookshelf background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 209800,
+      "failed_seeds": []
+    },
+    "woman-99": {
+      "sex": "woman",
+      "age": 24,
+      "ethnicity": "East Asian",
+      "prompt": "upper body portrait photograph of a 24 year old East Asian woman with tied back black hair and glasses, wearing a striped top, centered in the frame, facing the camera, a confident smile, plain light grey studio background, soft natural lighting, sharp focus, high detail skin",
+      "seed": 209900,
+      "failed_seeds": []
+    },
+    "woman-100": {
+      "sex": "woman",
+      "age": 40,
+      "ethnicity": "white European",
+      "prompt": "upper body portrait photograph of a 40 year old white European woman with wavy red hair, wearing a cream blouse, centered in the frame, facing the camera, a gentle smile, blurred modern workplace background, soft natural lighting, sharp focus, high detail skin",
+      "failed_seeds": [],
+      "rejected_seeds": [
+        210000
+      ],
+      "seed": 210001
+    }
+  }
+}
