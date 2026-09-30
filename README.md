@@ -57,22 +57,23 @@ created — there are already enough people to book meetings with.
 ## Avatars
 
 Nine in ten generated people get an avatar; the rest are left without, so an environment shows the
-initials fallback too. **Nobody in an environment ever gets an image somebody else already has** -
-a run that would need more images than remain unused fails before creating anyone, rather than
-repeating one.
+initials fallback too. Each avatar is **a photograph whose apparent sex matches the person's first
+name**, and **nobody in an environment ever gets one somebody else already has** - a run that would
+need more photographs of either sex than remain unused fails before creating anyone, rather than
+repeating one or borrowing from the other half.
 
-The images are 200 PNGs bundled in [`impl/src/main/resources/avatars/`](impl/src/main/resources/avatars/).
-They are line drawings in DiceBear's **Notionists Neutral** style, whose design is
-[CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) (by Zoish) - public domain, no
-attribution owed. They are deliberately not photographs of anyone. DiceBear's licences are *per
-style*, and several other styles are CC BY 4.0, so a different style is a licensing decision and not
-just a cosmetic one.
+The photographs are 100 men and 100 women, 512x512 JPEGs bundled in
+[`impl/src/main/resources/avatars-photo/`](impl/src/main/resources/avatars-photo/), about 10 MB.
+**None of them is a real person**: they were generated with Stable Diffusion 1.5, and
+[`photorealistic-avatar-generator/`](photorealistic-avatar-generator/) is the tool that made them,
+with each image's prompt and seed in its `manifest.json`. It is authoring-time tooling needing a
+GPU; nothing in the build, the jar or the Lambda runs it. See
+[photorealistic-demo-avatars.md](https://github.com/geoffweatherall/mootmaker/blob/main/designs/photorealistic-demo-avatars.md).
 
-[`tools/generate-avatar-pool.sh`](tools/generate-avatar-pool.sh) regenerates them, and refuses to
-run against a style that is not CC0. It is authoring-time tooling: it needs Node, its output is
-committed, and nothing in the build, the jar or the Lambda runs it. Each image comes from a fixed
-seed (`mootmaker-001` to `mootmaker-200`), so the pool is reproducible rather than a directory of
-mystery bytes. The pool must stay comfortably larger than any `TARGET_PEOPLE`.
+Sex comes from `SampleData.FEMALE_FIRST_NAMES`, a direct tag on 20 of the 40 curated first names;
+every other name is treated as male. It is a guess about a fictional person, made only so a demo
+does not look obviously wrong, and nothing but avatar choice reads it. The two halves are used up
+independently, so each must stay comfortably above half of `TARGET_PEOPLE`.
 
 **An avatar is set exactly the way the webapp would set one**: `createPerson`, then
 `requestAvatarUpload`, an HTTP `PUT` of the image to the presigned URL that returns, then

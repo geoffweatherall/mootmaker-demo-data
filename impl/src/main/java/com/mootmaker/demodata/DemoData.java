@@ -226,7 +226,7 @@ final class DemoData {
             .map(AvatarPool::hashOf)
             .flatMap(Optional::stream)
             .collect(Collectors.toSet());
-    final List<AvatarPool.Avatar> avatars = AvatarPool.assign(toCreate, hashesInUse, random);
+    final List<AvatarPool.Avatar> avatars = AvatarPool.assign(names, hashesInUse, random);
 
     runInParallel(
         IntStream.range(0, toCreate).boxed().toList(),

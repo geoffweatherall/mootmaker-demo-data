@@ -33,25 +33,26 @@ class DemoDataTopUpTest {
 
   @Test
   void roughlyNineInTenNewPeopleGetAnAvatar() {
-    // As large a batch as the pool can cover, so the 10%-without rate is checked as a rate. FIXED's
-    // seed makes the count deterministic, but this asserts its shape rather than pinning the exact
-    // number, so it does not become a change-detector on AvatarPool.assign's internals.
+    // As large a batch as either half of the pool can comfortably cover, so the 10%-without rate
+    // is checked as a rate. FIXED's seed makes the count deterministic, but this asserts its shape
+    // rather than pinning the exact number, so it does not become a change-detector on
+    // AvatarPool.assign's internals.
     final FakeGraphQlClient client = new FakeGraphQlClient(0, List.of());
 
-    DemoData.topUpPeople(client, 200, FIXED);
+    DemoData.topUpPeople(client, 150, FIXED);
 
     final long withAvatar =
         client.createdPeople().stream().filter(p -> p.avatarSha256() != null).count();
-    assertEquals(200, client.createdPeople().size());
+    assertEquals(150, client.createdPeople().size());
     assertTrue(
-        withAvatar > 165 && withAvatar < 195, "expected roughly 180 of 200, got " + withAvatar);
+        withAvatar > 120 && withAvatar < 148, "expected roughly 135 of 150, got " + withAvatar);
   }
 
   @Test
   void noTwoPeopleCreatedInOneRunShareAnAvatar() {
     final FakeGraphQlClient client = new FakeGraphQlClient(0, List.of());
 
-    DemoData.topUpPeople(client, 200, FIXED);
+    DemoData.topUpPeople(client, 150, FIXED);
 
     final List<String> hashes =
         client.createdPeople().stream()
@@ -62,22 +63,48 @@ class DemoDataTopUpTest {
   }
 
   /**
+   * Checked end to end, from what the (fake) API recorded against each created person, rather than
+   * by calling the assignment code directly: the upload path could otherwise mismatch the names and
+   * images it was handed without the pool's own test noticing.
+   */
+  @Test
+  void everyCreatedPersonsPhotographMatchesTheSexTheirNameIsTaggedWith() {
+    final Map<String, AvatarPool.Avatar> bundledByHash =
+        AvatarPool.all().stream()
+            .collect(Collectors.toMap(AvatarPool.Avatar::sha256, avatar -> avatar));
+    final FakeGraphQlClient client = new FakeGraphQlClient(0, List.of());
+
+    DemoData.topUpPeople(client, 150, FIXED);
+
+    for (final FakeGraphQlClient.CreatedPerson person : client.createdPeople()) {
+      if (person.avatarSha256() != null) {
+        final AvatarPool.Avatar avatar = bundledByHash.get(person.avatarSha256());
+        assertEquals(
+            SampleData.sexOf(person.name()),
+            avatar.sex(),
+            person.name() + " got " + avatar.resourceName());
+      }
+    }
+  }
+
+  /**
    * What is in use is read back from the people who already exist - so it holds across runs, not
-   * just within one. 150 of the 200 images are taken; the 50 new people must draw only from the
-   * other 50.
+   * just within one. Three quarters of each sex's photographs are taken; the new people must draw
+   * only from the rest.
    */
   @Test
   void neverAssignsAnAvatarSomeoneInTheEnvironmentAlreadyHas() {
     final Set<String> taken =
-        AvatarPool.all().subList(0, 150).stream()
+        AvatarPool.all().stream()
+            .filter(avatar -> Integer.parseInt(avatar.resourceName().replaceAll("\\D", "")) <= 75)
             .map(AvatarPool.Avatar::sha256)
             .collect(Collectors.toSet());
     final FakeGraphQlClient client = new FakeGraphQlClient(150, List.of());
     client.withExistingAvatarHashes(taken);
 
-    DemoData.topUpPeople(client, 200, FIXED);
+    DemoData.topUpPeople(client, 190, FIXED);
 
-    assertEquals(50, client.createdPeople().size());
+    assertEquals(40, client.createdPeople().size());
     for (final FakeGraphQlClient.CreatedPerson person : client.createdPeople()) {
       assertFalse(
           taken.contains(person.avatarSha256()), person.name() + " was given an avatar in use");
@@ -86,17 +113,17 @@ class DemoDataTopUpTest {
 
   @Test
   void runningOutOfAvatarsFailsLoudlyAndCreatesNobody() {
-    final FakeGraphQlClient client = new FakeGraphQlClient(AvatarPool.SIZE, List.of());
+    final int poolSize = AvatarPool.all().size();
+    final FakeGraphQlClient client = new FakeGraphQlClient(poolSize, List.of());
     client.withExistingAvatarHashes(
         AvatarPool.all().stream().map(AvatarPool.Avatar::sha256).toList());
 
     // Twenty more people, every image taken. All twenty drawing "no avatar" is 1 in 10^20.
     final IllegalStateException thrown =
         assertThrows(
-            IllegalStateException.class,
-            () -> DemoData.topUpPeople(client, AvatarPool.SIZE + 20, FIXED));
+            IllegalStateException.class, () -> DemoData.topUpPeople(client, poolSize + 20, FIXED));
 
-    assertTrue(thrown.getMessage().contains("Out of avatars"), thrown.getMessage());
+    assertTrue(thrown.getMessage().matches("Out of (male|female) avatars.*"), thrown.getMessage());
     assertTrue(
         client.createdPeopleNames().isEmpty(),
         "the shortfall must be found before anyone is created, not part-way through");
@@ -117,8 +144,8 @@ class DemoDataTopUpTest {
             .collect(Collectors.toMap(AvatarPool.Avatar::sha256, avatar -> avatar));
     assertFalse(client.uploads().isEmpty());
     for (final FakeGraphQlClient.Upload upload : client.uploads()) {
-      assertEquals("image/png", upload.declaredContentType);
-      assertEquals("image/png", upload.putContentType);
+      assertEquals("image/jpeg", upload.declaredContentType);
+      assertEquals("image/jpeg", upload.putContentType);
       assertEquals(upload.declaredContentLength, upload.putBytes.length);
       assertTrue(upload.confirmed, "every upload that was PUT must also be confirmed");
     }

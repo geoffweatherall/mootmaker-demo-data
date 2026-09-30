@@ -1,7 +1,6 @@
 package com.mootmaker.demodata;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -10,9 +9,12 @@ import module java.base;
 
 import java.awt.image.BufferedImage;
 import javax.imageio.ImageIO;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class AvatarPoolTest {
+
+  private static final int POOL_SIZE = 2 * AvatarPool.SIZE_PER_SEX;
 
   // --- The bundled images -------------------------------------------------------------
 
@@ -22,7 +24,7 @@ class AvatarPoolTest {
    */
   @Test
   void everyBundledAvatarLoadsAndIsAnImageTheApiWillAccept() throws IOException {
-    assertEquals(AvatarPool.SIZE, AvatarPool.all().size());
+    assertEquals(POOL_SIZE, AvatarPool.all().size());
     for (final AvatarPool.Avatar avatar : AvatarPool.all()) {
       final BufferedImage image = ImageIO.read(new ByteArrayInputStream(avatar.bytes()));
       assertNotNull(image, avatar.resourceName() + " does not decode");
@@ -34,7 +36,21 @@ class AvatarPoolTest {
       assertTrue(
           avatar.bytes().length <= 2 * 1024 * 1024, avatar.resourceName() + " exceeds 2 MiB");
       assertEquals(
-          (byte) 0x89, avatar.bytes()[0], avatar.resourceName() + " is not a PNG, as declared");
+          (byte) 0xFF, avatar.bytes()[0], avatar.resourceName() + " is not a JPEG, as declared");
+    }
+  }
+
+  @Test
+  void eachSexHasItsOwnHalfOfThePool() {
+    for (final SampleData.Sex sex : SampleData.Sex.values()) {
+      final List<AvatarPool.Avatar> half =
+          AvatarPool.all().stream().filter(avatar -> avatar.sex() == sex).toList();
+      assertEquals(AvatarPool.SIZE_PER_SEX, half.size(), sex.name());
+      final String prefix =
+          sex == SampleData.Sex.FEMALE ? "avatars-photo/woman-" : "avatars-photo/man-";
+      for (final AvatarPool.Avatar avatar : half) {
+        assertTrue(avatar.resourceName().startsWith(prefix), avatar.resourceName());
+      }
     }
   }
 
@@ -47,19 +63,21 @@ class AvatarPoolTest {
     final Set<String> hashes =
         AvatarPool.all().stream().map(AvatarPool.Avatar::sha256).collect(Collectors.toSet());
 
-    assertEquals(AvatarPool.SIZE, hashes.size());
+    assertEquals(POOL_SIZE, hashes.size());
   }
 
   @Test
   void thePoolOnDiskIsExactlyThePoolTheCodeExpects() throws IOException {
     // A stray or misnumbered file would be bundled and never used - or worse, leave a gap.
-    try (Stream<Path> files = Files.list(Path.of("src/main/resources/avatars"))) {
+    try (Stream<Path> files = Files.list(Path.of("src/main/resources/avatars-photo"))) {
       final Set<String> onDisk =
-          files.map(path -> "avatars/" + path.getFileName()).collect(Collectors.toSet());
-      final Set<String> expected =
-          IntStream.rangeClosed(1, AvatarPool.SIZE)
-              .mapToObj(AvatarPool::resourceName)
-              .collect(Collectors.toSet());
+          files.map(path -> "avatars-photo/" + path.getFileName()).collect(Collectors.toSet());
+      final Set<String> expected = new HashSet<>();
+      for (final SampleData.Sex sex : SampleData.Sex.values()) {
+        for (int number = 1; number <= AvatarPool.SIZE_PER_SEX; number++) {
+          expected.add(AvatarPool.resourceName(sex, number));
+        }
+      }
       assertEquals(expected, onDisk);
     }
   }
@@ -68,7 +86,9 @@ class AvatarPoolTest {
 
   @Test
   void assignsOnePositionPerPersonAndNeverTheSameImageTwice() {
-    final List<AvatarPool.Avatar> assigned = AvatarPool.assign(150, Set.of(), new Random(7));
+    final List<String> names = SampleData.personNames(150, new Random(7));
+
+    final List<AvatarPool.Avatar> assigned = AvatarPool.assign(names, Set.of(), new Random(7));
 
     assertEquals(150, assigned.size());
     final List<AvatarPool.Avatar> withOne = assigned.stream().filter(Objects::nonNull).toList();
@@ -76,35 +96,82 @@ class AvatarPoolTest {
     assertTrue(withOne.size() < 150, "some people must be left without, to show the fallback");
   }
 
+  /** The case photorealistic-demo-avatars.md re-introduces: a photograph matches its name. */
+  @Test
+  void everyAssignedPhotographMatchesTheSexTheNameIsTaggedWith() {
+    final List<String> names = SampleData.personNames(150, new Random(11));
+
+    final List<AvatarPool.Avatar> assigned = AvatarPool.assign(names, Set.of(), new Random(11));
+
+    int checked = 0;
+    for (int i = 0; i < names.size(); i++) {
+      if (assigned.get(i) != null) {
+        assertEquals(
+            SampleData.sexOf(names.get(i)),
+            assigned.get(i).sex(),
+            names.get(i) + " got " + assigned.get(i).resourceName());
+        checked++;
+      }
+    }
+    assertTrue(checked > 100, "the check must actually have covered people, got " + checked);
+  }
+
   @Test
   void skipsImagesAlreadyInUse() {
     final Set<String> inUse =
-        AvatarPool.all().subList(0, 190).stream()
+        AvatarPool.all().stream()
+            .filter(avatar -> !avatar.resourceName().endsWith("-100.jpg"))
             .map(AvatarPool.Avatar::sha256)
             .collect(Collectors.toSet());
 
-    final List<AvatarPool.Avatar> assigned = AvatarPool.assign(8, inUse, new Random(7));
+    final List<AvatarPool.Avatar> assigned =
+        AvatarPool.assign(List.of("Amelia Whitfield"), inUse, new Random(3));
 
-    for (final AvatarPool.Avatar avatar : assigned) {
-      assertFalse(avatar != null && inUse.contains(avatar.sha256()));
+    // Nine in ten get one; with a seed where this one does, it can only be the one woman left.
+    if (assigned.getFirst() != null) {
+      assertEquals("avatars-photo/woman-100.jpg", assigned.getFirst().resourceName());
     }
   }
 
   @Test
-  void throwsRatherThanRepeatingWhenThePoolIsExhausted() {
-    final Set<String> allInUse =
-        AvatarPool.all().stream().map(AvatarPool.Avatar::sha256).collect(Collectors.toSet());
+  @DisplayName("one sex running out is an error, not a reason to use the other sex's photographs")
+  void throwsRatherThanCrossingOverWhenOneSexIsExhausted() {
+    final Set<String> allWomenInUse =
+        AvatarPool.all().stream()
+            .filter(avatar -> avatar.sex() == SampleData.Sex.FEMALE)
+            .map(AvatarPool.Avatar::sha256)
+            .collect(Collectors.toSet());
+    // Twenty women, every woman's photograph taken - but every man's still free.
+    final List<String> women = Collections.nCopies(20, "Amelia Whitfield");
 
-    assertThrows(IllegalStateException.class, () -> AvatarPool.assign(20, allInUse, new Random(7)));
+    assertThrows(
+        IllegalStateException.class, () -> AvatarPool.assign(women, allWomenInUse, new Random(7)));
   }
 
   @Test
   void hashesThatAreNotOursDoNotShrinkThePool() {
     // A person with an avatar uploaded some other way holds a hash this pool has never seen.
     final List<AvatarPool.Avatar> assigned =
-        AvatarPool.assign(10, Set.of("f".repeat(64)), new Random(7));
+        AvatarPool.assign(
+            SampleData.personNames(10, new Random(7)), Set.of("f".repeat(64)), new Random(7));
 
     assertEquals(10, assigned.size());
+  }
+
+  // --- Sex from a name ----------------------------------------------------------------
+
+  @Test
+  void aNameIsReadByItsTaggedFirstName() {
+    assertEquals(SampleData.Sex.FEMALE, SampleData.sexOf("Amelia Whitfield"));
+    assertEquals(SampleData.Sex.MALE, SampleData.sexOf("Noah Whitfield"));
+    // Untagged means male, as it always has.
+    assertEquals(SampleData.Sex.MALE, SampleData.sexOf("Someone Unlisted"));
+  }
+
+  @Test
+  void exactlyHalfOfTheFirstNamesAreTaggedFemale() {
+    assertTrue(SampleData.FIRST_NAMES.containsAll(SampleData.FEMALE_FIRST_NAMES));
+    assertEquals(SampleData.FIRST_NAMES.size() / 2, SampleData.FEMALE_FIRST_NAMES.size());
   }
 
   // --- Reading a hash back off a URL --------------------------------------------------
