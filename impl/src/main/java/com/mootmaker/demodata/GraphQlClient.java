@@ -117,4 +117,34 @@ class GraphQlClient {
       throw new IllegalStateException("GraphQL request was interrupted", e);
     }
   }
+
+  /**
+   * PUTs bytes to a presigned URL - the second of the three calls that set an avatar, and the one
+   * that is not GraphQL at all. The same request a browser would make.
+   *
+   * <p>No {@code Authorization} header, deliberately: the URL carries its own signature, and S3
+   * rejects a request that presents two forms of authentication. The content type must be exactly
+   * the one declared to {@code requestAvatarUpload}, and the body exactly the declared length -
+   * both are part of what was signed. {@code HttpClient} sets Content-Length from the body itself.
+   */
+  void put(final String url, final String contentType, final byte[] body) {
+    final HttpRequest request =
+        HttpRequest.newBuilder(URI.create(url))
+            .header("Content-Type", contentType)
+            .PUT(HttpRequest.BodyPublishers.ofByteArray(body))
+            .build();
+    try {
+      final HttpResponse<String> response =
+          httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+      if (response.statusCode() != 200) {
+        throw new IllegalStateException(
+            "Upload was refused with HTTP " + response.statusCode() + ": " + response.body());
+      }
+    } catch (final IOException e) {
+      throw new IllegalStateException("Failed to upload to a presigned URL", e);
+    } catch (final InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("Upload was interrupted", e);
+    }
+  }
 }
