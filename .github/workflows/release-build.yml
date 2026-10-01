@@ -7,16 +7,15 @@
 # what deploy.sh's --skip-build flag exists to make possible.
 #
 # UNLIKE the other two components, this one needs mootmaker-api present and deployed:
-#   - verify.sh resolves "../mootmaker-api" and fails outright if it is not there, because the
-#     acceptance suite resets the environment through mootmaker-api's database-reset Lambda before
-#     seeding it;
+#   - the acceptance suite resets the environment through mootmaker-api's database-reset Lambda
+#     before seeding it, and reads data back through the API's client, which verify.sh looks up
+#     in the SSM parameters mootmaker-api publishes;
 #   - this component reads its GraphQL endpoint and Cognito M2M credentials from SSM parameters
 #     that mootmaker-api's Terraform creates, so deploying it alone yields a Lambda that deploys
 #     cleanly and then fails on first invocation with a missing-parameter error.
 #
-# Both checkouts therefore set an explicit `path`, so they land as SIBLINGS under the workspace
-# root - the layout every mootmaker script expects. Checking mootmaker-api out into a subdirectory
-# of this repo would put it at ../../mootmaker-api and break verify.sh's lookup.
+# Both checkouts set an explicit `path`, so they land as SIBLINGS under the workspace root - the
+# layout every mootmaker script expects - and mootmaker-api can be deployed into the environment.
 #
 # OIDC NOTE: the deploy role's trust policy only accepts this workflow at refs/tags/v* (see
 # mootmaker-bootstrap-aws-accounts/workload-account/github-actions-deploy-role.yaml). A run on a
