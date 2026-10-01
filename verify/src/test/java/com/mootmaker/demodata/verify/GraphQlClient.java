@@ -10,7 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * Reads back what demo-data produced, so the suite can assert against real stored state rather than
  * the Lambda's own summary of what it thinks it did.
  *
- * <p>Authenticates with the acceptance-test app client (via mootmaker-api's authenticate.sh, the
+ * <p>Authenticates with the API's machine-to-machine client (looked up in SSM by verify.sh, the
  * same way that project's own suite does) rather than demo-data's client. The suite is a test
  * harness, not the component - it is deliberately a different identity from the thing under test.
  */

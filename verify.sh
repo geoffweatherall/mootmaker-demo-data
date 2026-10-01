@@ -22,17 +22,25 @@ if [[ "${environment}" == "production" ]]; then
   exit 1
 fi
 
-api_dir="../mootmaker-api"
-if [[ ! -f "${api_dir}/authenticate.sh" ]]; then
-  echo "Expected to find the mootmaker-api checkout at ${api_dir} (as a sibling of this directory)." >&2
-  exit 1
-fi
-
-# The suite reads data back through GraphQL as the acceptance-test client - deliberately a
+# The suite reads data back through GraphQL as the API's machine-to-machine client - deliberately a
 # different identity from demo-data's own, since it is the harness rather than the thing under
-# test. Unlike deploy.sh, which needs nothing from mootmaker-api, a test harness reading that
-# project's outputs is the same thing its own verify.sh does.
-source "${api_dir}/authenticate.sh" "${environment}"
+# test. Looked up in SSM Parameter Store, where mootmaker-api's deploy publishes it
+# (mootmaker-api#94), and passed to the test JVM only.
+ssm_value() {
+  local value
+  if ! value="$(aws ssm get-parameter --name "/mootmaker/${environment}/api/$1" --with-decryption --query Parameter.Value --output text 2>&1)"; then
+    echo "Could not read /mootmaker/${environment}/api/$1 - has mootmaker-api been deployed to '${environment}'?" >&2
+    echo "${value}" >&2
+    exit 1
+  fi
+  printf '%s' "${value}"
+}
+GRAPHQL_API_URL="$(ssm_value graphql-url)"
+COGNITO_TOKEN_URL="$(ssm_value m2m-client/token-url)"
+COGNITO_TEST_CLIENT_ID="$(ssm_value m2m-client/client-id)"
+COGNITO_TEST_CLIENT_SECRET="$(ssm_value m2m-client/client-secret)"
+COGNITO_TEST_SCOPE="$(ssm_value m2m-client/scope)"
+export GRAPHQL_API_URL COGNITO_TOKEN_URL COGNITO_TEST_CLIENT_ID COGNITO_TEST_CLIENT_SECRET COGNITO_TEST_SCOPE
 
 # Function names are computed the same way each component's own Terraform names them.
 export ENVIRONMENT="${environment}"
