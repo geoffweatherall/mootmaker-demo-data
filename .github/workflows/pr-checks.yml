@@ -50,7 +50,19 @@ jobs:
           java-version: '25'
           cache: maven
 
+      # The unit tests validate every GraphQL operation against mootmaker-api's schema
+      # (mootmaker-demo-data#23), the Java counterpart of the webapp's codegen:check. Locally that is
+      # read from the sibling checkout; a runner cannot check a repository out beside this one, so
+      # it lands inside the workspace and MOOTMAKER_SCHEMA points at it. Validated against main,
+      # which is what this component will be released alongside.
+      - uses: actions/checkout@v5
+        with:
+          repository: geoffweatherall/mootmaker-api
+          path: mootmaker-api
+
       - name: Unit tests (impl/ only)
+        env:
+          MOOTMAKER_SCHEMA: ${{ github.workspace }}/mootmaker-api/api/mootmaker.graphql
         run: mvn -B -ntp -f impl/pom.xml test
 
   # Separate from unit-tests so a formatting failure reads as a formatting failure, and so that

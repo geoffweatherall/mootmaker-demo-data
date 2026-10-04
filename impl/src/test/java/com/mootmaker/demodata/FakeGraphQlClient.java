@@ -142,6 +142,13 @@ final class FakeGraphQlClient extends GraphQlClient {
 
   @Override
   JsonNode execute(final String query, final Map<String, Object> variables) {
+    // Before anything else: would the real API accept this request at all? Without this the fake
+    // answers whatever it is asked in whatever shape it believes, which is how four breakages
+    // stayed green (mootmaker-demo-data#23).
+    final List<String> problems = ApiSchema.problemsWith(query, variables);
+    if (!problems.isEmpty()) {
+      throw new AssertionError("The API's schema rejects this request: " + problems + "\n" + query);
+    }
     if (query.contains("workspace { people { id } }")) {
       final var people = OBJECT_MAPPER.createArrayNode();
       for (int i = 0; i < existingPeople; i++) {

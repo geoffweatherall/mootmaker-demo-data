@@ -93,6 +93,17 @@
       <artifactId>junit-jupiter</artifactId>
       <scope>test</scope>
     </dependency>
+    <!--
+      Test-only. Validates every GraphQL operation this tool sends against mootmaker-api's schema,
+      offline, on every PR (mootmaker-demo-data#23) - the Java counterpart of the webapp's
+      codegen:check. Not shaded into the Lambda.
+    -->
+    <dependency>
+      <groupId>com.graphql-java</groupId>
+      <artifactId>graphql-java</artifactId>
+      <version>26.1</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
