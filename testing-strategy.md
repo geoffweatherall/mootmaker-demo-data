@@ -9,7 +9,12 @@ This document covers what's specific to this repo.
 - **Unit tests** (`impl/src/test/`, run via `mvn -f impl/pom.xml clean package`): fast, no AWS
   involved. Cover the scheduling algorithm's invariants, the three concerns' top-up arithmetic
   (including the already-at-target and over-target cases that make a run repeatable), payload toggle
-  parsing, and the bounded-parallelism helper.
+  parsing, and the bounded-parallelism helper. They also check **every GraphQL operation against
+  `mootmaker-api`'s schema** (mootmaker-demo-data#23): `OperationsSchemaTest` validates each
+  constant in `Operations`, and `FakeGraphQlClient` refuses any request, variables included, that
+  the schema would reject. So the fake can no longer answer a request the real API would refuse.
+  The schema is read from the sibling `../mootmaker-api` checkout (or `MOOTMAKER_SCHEMA`), and the
+  tests **fail** if it is missing rather than skipping.
 - **Acceptance tests** (`verify/`, JUnit `*IT.java`, run via `./verify.sh <environment>`): exercise
   the **deployed** Lambda against a **deployed** `mootmaker-api`, over real Cognito M2M auth, real
   AppSync and real DynamoDB.

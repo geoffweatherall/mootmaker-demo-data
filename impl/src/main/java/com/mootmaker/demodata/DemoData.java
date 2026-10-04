@@ -207,13 +207,6 @@ final class DemoData {
     System.out.println(
         "People: " + existing + " exist, creating " + toCreate + " to reach " + target + "...");
 
-    // { person { ... } errors }, matching createRoom below. CreatePersonResult has never had id
-    // or name directly on it - the previous selection was simply invalid, and nothing caught it
-    // because this path had no acceptance coverage and the fake client mirrored the same wrong
-    // shape back.
-    final String mutation =
-        "mutation CreatePerson($name: String!) { "
-            + "createPerson(name: $name) { person { id name } errors } }";
     // Random isn't safe for concurrent use, so the names and avatars are drawn up front,
     // sequentially; only the network calls below run in parallel. The names are distinct by
     // construction, which is what lets the loop below index by position rather than by name.
@@ -231,7 +224,8 @@ final class DemoData {
     runInParallel(
         IntStream.range(0, toCreate).boxed().toList(),
         i -> {
-          final JsonNode result = client.execute(mutation, Map.of("name", names.get(i)));
+          final JsonNode result =
+              client.execute(Operations.CREATE_PERSON, Map.of("name", names.get(i)));
           failIfErrors(result.get("createPerson"), "createPerson(" + names.get(i) + ")");
           final JsonNode person = result.get("createPerson").get("person");
           // createPerson takes no avatar. One is set the only way the API allows, which is the
@@ -255,10 +249,7 @@ final class DemoData {
     final JsonNode requested =
         client
             .execute(
-                "mutation RequestAvatarUpload($personId: ID!, $contentType: String!,"
-                    + " $contentLength: Int!) { requestAvatarUpload(personId: $personId,"
-                    + " contentType: $contentType, contentLength: $contentLength) {"
-                    + " upload { uploadId url } errors } }",
+                Operations.REQUEST_AVATAR_UPLOAD,
                 Map.of(
                     "personId", personId,
                     "contentType", AvatarPool.CONTENT_TYPE,
@@ -272,9 +263,7 @@ final class DemoData {
     final JsonNode confirmed =
         client
             .execute(
-                "mutation ConfirmAvatarUpload($personId: ID!, $uploadId: ID!) {"
-                    + " confirmAvatarUpload(personId: $personId, uploadId: $uploadId) {"
-                    + " person { id avatarUrl } errors } }",
+                Operations.CONFIRM_AVATAR_UPLOAD,
                 Map.of("personId", personId, "uploadId", upload.get("uploadId").asText()))
             .get("confirmAvatarUpload");
     failIfErrors(confirmed, "confirmAvatarUpload(" + avatar.resourceName() + ")");
@@ -315,16 +304,14 @@ final class DemoData {
       capacities[i] = MIN_ROOM_CAPACITY + random.nextInt(MAX_ROOM_CAPACITY - MIN_ROOM_CAPACITY + 1);
     }
 
-    final String mutation =
-        "mutation CreateRoom($room: RoomInput!) { createRoom(room: $room) { room { id name capacity"
-            + " } errors } }";
     runInParallel(
         IntStream.range(0, toCreate).boxed().toList(),
         i -> {
           final String name = names.get(i);
           final JsonNode result =
               client.execute(
-                  mutation, Map.of("room", Map.of("name", name, "capacity", capacities[i])));
+                  Operations.CREATE_ROOM,
+                  Map.of("room", Map.of("name", name, "capacity", capacities[i])));
           final JsonNode payload = result.get("createRoom");
           failIfErrors(payload, "createRoom(" + name + ")");
           final JsonNode room = payload.get("room");
@@ -700,7 +687,7 @@ final class DemoData {
   record RoomDetail(String id, String name, int capacity) {}
 
   private static List<RoomDetail> fetchRooms(final GraphQlClient client) {
-    final JsonNode result = client.execute("query { workspace { rooms { id name capacity } } }");
+    final JsonNode result = client.execute(Operations.ROOMS);
     final List<RoomDetail> rooms = new ArrayList<>();
     for (final JsonNode room : result.get("workspace").get("rooms")) {
       rooms.add(
@@ -715,7 +702,7 @@ final class DemoData {
    * size is the headcount, and the non-null values say which avatars are taken.
    */
   private static List<String> fetchAvatarUrls(final GraphQlClient client) {
-    final JsonNode result = client.execute("query { workspace { people { id avatarUrl } } }");
+    final JsonNode result = client.execute(Operations.PEOPLE_AVATAR_URLS);
     final List<String> avatarUrls = new ArrayList<>();
     for (final JsonNode person : result.get("workspace").get("people")) {
       final JsonNode avatarUrl = person.get("avatarUrl");
@@ -725,7 +712,7 @@ final class DemoData {
   }
 
   private static List<String> fetchPersonIds(final GraphQlClient client) {
-    final JsonNode result = client.execute("query { workspace { people { id } } }");
+    final JsonNode result = client.execute(Operations.PERSON_IDS);
     final List<String> personIds = new ArrayList<>();
     for (final JsonNode person : result.get("workspace").get("people")) {
       personIds.add(person.get("id").asText());
@@ -762,11 +749,7 @@ final class DemoData {
     if (dates.isEmpty()) {
       return Set.of();
     }
-    final String query =
-        "query DatesWithMeetings($dates: [String!]) { "
-            + "workspace(dates: $dates) { days { date meetings { id } } } }";
-
-    final JsonNode result = client.execute(query, Map.of("dates", dates));
+    final JsonNode result = client.execute(Operations.DATES_WITH_MEETINGS, Map.of("dates", dates));
     final Set<LocalDate> withMeetings = new HashSet<>();
     for (final JsonNode day : result.get("workspace").get("days")) {
       if (!day.get("meetings").isEmpty()) {
@@ -812,16 +795,12 @@ final class DemoData {
 
   private static Map<LocalDate, List<MeetingDetail>> fetchMeetingDetailsChunk(
       final GraphQlClient client, final List<LocalDate> days) {
-    final String query =
-        "query MeetingDetails($dates: [String!]) { "
-            + "workspace(dates: $dates) { days { date meetings { "
-            + "room { id } organiser { id } attendees { person { id } } startTime endTime } } } }";
     final List<String> dates = days.stream().map(LocalDate::toString).toList();
     if (dates.isEmpty()) {
       return Map.of();
     }
 
-    final JsonNode result = client.execute(query, Map.of("dates", dates));
+    final JsonNode result = client.execute(Operations.MEETING_DETAILS, Map.of("dates", dates));
     final Map<LocalDate, List<MeetingDetail>> byDate = new HashMap<>();
     for (final JsonNode day : result.get("workspace").get("days")) {
       final LocalDate date = LocalDate.parse(day.get("date").asText());
@@ -863,13 +842,11 @@ final class DemoData {
 
   private static void createMeetingBatch(
       final GraphQlClient client, final LocalDate date, final List<GeneratedMeeting> meetings) {
-    final String mutation =
-        "mutation CreateMeetings($date: String!, $meetings: [MeetingInput!]!) { "
-            + "createMeetings(date: $date, meetings: $meetings) { failures { index errors } } }";
     final List<Map<String, Object>> inputs = meetings.stream().map(DemoData::meetingInput).toList();
 
     final JsonNode result =
-        client.execute(mutation, Map.of("date", date.toString(), "meetings", inputs));
+        client.execute(
+            Operations.CREATE_MEETINGS, Map.of("date", date.toString(), "meetings", inputs));
     failIfAnyRejected(result.get("createMeetings"), meetings);
     for (final GeneratedMeeting meeting : meetings) {
       System.out.println(
