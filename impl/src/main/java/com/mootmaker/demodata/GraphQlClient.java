@@ -8,9 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * Minimal HTTP client for executing GraphQL operations against a deployed mootmaker-api
- * environment. There used to be two byte-identical copies of this class, one per tool, kept apart
- * because they were separate Maven projects with no shared-code mechanism; merging the tools into
- * one component deleted the duplicate.
+ * environment.
  */
 class GraphQlClient {
 
@@ -29,8 +27,8 @@ class GraphQlClient {
    * Builds a client using the OAuth2 client_credentials flow: this tool's own app client id and
    * secret are exchanged at the Cognito token endpoint for a JWT access token, so no human user or
    * password is involved. Credentials come from SSM Parameter Store at runtime (see {@link
-   * SsmSecrets}) rather than from environment variables - it used to borrow the acceptance tests'
-   * client, whose secret was passed in as a plaintext Lambda environment variable.
+   * SsmSecrets}), never from environment variables, where anyone able to read the function's
+   * configuration could read the secret.
    *
    * <p>The token is fetched <b>once per run</b>, not once per request. Cognito bills M2M token
    * requests with no free tier at all, so a token per GraphQL call would cost hundreds of times

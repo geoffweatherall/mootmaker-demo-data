@@ -27,9 +27,8 @@ import software.amazon.awssdk.services.ssm.model.GetParametersResponse;
  * GraphQL, so anything it produced is by definition data the API's own validation allowed.
  *
  * <p>Resets the environment once, then seeds it with a single run - the full-window path, which on
- * a fresh environment is every business day in the window. That path used to be the rarely
- * exercised one; making seeding and topping up the same operation is what puts it under test on
- * every run.
+ * a fresh environment is every business day in the window. Because seeding and topping up are the
+ * same operation, that path is under test on every run.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @DisplayName("Generated demo data satisfies its scheduling invariants")
@@ -520,10 +519,9 @@ class GeneratedDataInvariantsAcceptanceIT {
   }
 
   /**
-   * The check that would have caught the original bug. A client falls back to initials when an
-   * avatar fails to load, so an avatarUrl being present proves nothing - only fetching it does.
-   * Every one, not a sample: the failure this guards against was total, but a partial one would
-   * look the same from any page that happened to show working avatars.
+   * Every avatar actually loads. A client falls back to initials when an avatar fails to load, so
+   * an avatarUrl being present proves nothing - only fetching it does. Every one, not a sample: a
+   * partial failure would look fine from any page that happened to show working avatars.
    */
   @Test
   @DisplayName("every avatar URL serves a real image")

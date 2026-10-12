@@ -29,8 +29,8 @@ variable "environment" {
 variable "target_people" {
   description = "How many people the environment should have. A run creates the shortfall and nothing if already met. Counted against the TOTAL number of people - Person exposes no Cognito linkage through the GraphQL API, so this tool cannot distinguish demo people from real signed-up ones (see the design)."
   type        = number
-  # Raised from 40 as part of designs/realistic-demo-meeting-schedule.md - see that design's
-  # "Technical considerations". This Terraform default, not DemoData.Targets' own intEnv fallback,
+  # Sized for a realistic office (see the realistic-demo-meeting-schedule design's "Technical
+  # considerations"). This Terraform default, not DemoData.Targets' own intEnv fallback,
   # is what actually governs a deployed environment: the environment block below always sets
   # TARGET_PEOPLE explicitly, so the Java-level default only matters for an ad hoc invoke with no
   # deployed Lambda config at all.
@@ -68,7 +68,7 @@ variable "schedule_enabled" {
 }
 
 variable "reserved_concurrency" {
-  description = "Reserved concurrent executions for the Lambda. Set to 1, making overlapping runs structurally impossible: Lambda throttles a second invocation outright rather than letting it race the first. That was impossible until 2026-09-07 - AWS rejects any reservation leaving the account with fewer than 10 unreserved executions, and this account's TOTAL quota was 10, so every value was rejected. The quota is now 1,000 (mootmaker#72), so the reservation is settable - see mootmaker-demo-data#27 and lambda.tf. Unrelated to MAX_CONCURRENT_REQUESTS in DemoData.java: that bounds the GraphQL calls THIS Lambda makes outward per invocation, not invocations of this Lambda itself, so reserving 1 here does not throttle that internal fan-out."
+  description = "Reserved concurrent executions for the Lambda. Set to 1, making overlapping runs impossible: Lambda throttles a second invocation outright rather than letting it race the first (mootmaker-demo-data#27, and lambda.tf). Unrelated to MAX_CONCURRENT_REQUESTS in DemoData.java: that bounds the GraphQL calls THIS Lambda makes outward per invocation, not invocations of this Lambda itself, so reserving 1 here does not throttle that internal fan-out."
   type        = number
   default     = 1
 }

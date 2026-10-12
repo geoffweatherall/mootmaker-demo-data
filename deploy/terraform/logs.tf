@@ -8,9 +8,8 @@
 # the only record of why. Its 900-second timeout also means a slow run looks identical to a hung
 # one from the outside - the log is what distinguishes them.
 #
-# IMPORTANT for test and production: this group ALREADY EXISTS there, auto-created and unmanaged,
-# so the first apply introducing this resource must be preceded by `terraform import` - CloudWatch
-# rejects creating a log group whose name is taken. See deploy/import-log-groups.sh.
+# If the group ever exists outside Terraform state, CloudWatch rejects creating it again: import it
+# first with deploy/import-log-groups.sh.
 resource "aws_cloudwatch_log_group" "demo_data" {
   # Built from resource_prefix rather than read off the function, and that is load-bearing.
   # Referencing aws_lambda_function.demo_data.function_name would make this group depend on the

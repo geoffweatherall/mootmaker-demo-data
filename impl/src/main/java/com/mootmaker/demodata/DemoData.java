@@ -579,16 +579,15 @@ final class DemoData {
   /**
    * A room, a free time in it, and someone free to attend.
    *
-   * <p>Searches SLOTS rather than whole free rooms. Requiring a room with no bookings at all was
-   * the first attempt and it failed precisely where it was needed: a day busy enough to leave a
-   * person uncovered is also a day with every room touched at least once, so the concern skipped
-   * exactly the days it existed for.
+   * <p>Searches SLOTS rather than whole free rooms. A day busy enough to leave a person uncovered
+   * is also a day with every room touched at least once, so requiring a room with no bookings at
+   * all would skip exactly the days this exists for.
    *
-   * <p>The ATTENDEE matters as much as the room, and missing that was the second bug. A free room
-   * says nothing about whether the person invited into it is already in a meeting somewhere else,
-   * and "no person is in two overlapping meetings" is an invariant the acceptance suite enforces.
-   * The guaranteed person needs no such check - they reached this point precisely because they have
-   * no meeting that day - but whoever joins them does.
+   * <p>The ATTENDEE matters as much as the room. A free room says nothing about whether the person
+   * invited into it is already in a meeting somewhere else, and "no person is in two overlapping
+   * meetings" is an invariant the acceptance suite enforces. The guaranteed person needs no such
+   * check - they reached this point precisely because they have no meeting that day - but whoever
+   * joins them does.
    *
    * <p>Pure, so the whole search is testable without AWS.
    */

@@ -19,16 +19,10 @@ resource "aws_lambda_function" "demo_data" {
   # defaults to a 60-second read timeout - see the README's documented `--cli-read-timeout 900`.
   timeout = 900
 
-  # Reserved at 1 (mootmaker-demo-data#27), making the theoretical overlap below structurally
-  # impossible rather than merely unlikely: two runs racing could both observe 30 rooms and both
-  # create 10. Lambda now throttles a second concurrent invocation outright and visibly instead of
-  # letting it race the first.
-  #
-  # This was impossible until 2026-09-07 (Geoff, 2026-09-02, when it was still an accepted risk):
-  # this account's total Lambda concurrency quota was 10 (not the usual 1000), and AWS refuses any
-  # reservation leaving fewer than 10 unreserved, so every value was rejected, not just this one.
-  # The quota is now 1,000, so the reservation is settable and running unreserved became a choice
-  # rather than a constraint - see variables.tf.
+  # Reserved at 1 (mootmaker-demo-data#27), so two runs can never race: both would see the same
+  # shortfall and both fill it. Lambda throttles a second concurrent invocation outright and visibly. AWS
+  # refuses any reservation that leaves the account fewer than 10 unreserved executions; this
+  # account's quota is 1,000 (mootmaker#72).
   #
   # Does not throttle DemoData's own internal fan-out: MAX_CONCURRENT_REQUESTS there bounds
   # parallel GraphQL calls this Lambda makes OUT per invocation, not invocations of this Lambda

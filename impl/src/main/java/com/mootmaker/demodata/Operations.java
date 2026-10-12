@@ -4,12 +4,11 @@ package com.mootmaker.demodata;
  * Every GraphQL operation this tool sends, in one place so they can be checked against the API's
  * schema without a deployed environment (mootmaker-demo-data#23).
  *
- * <p>Previously each was an inline string where it was used, and nothing compared any of them with
- * what the API accepts: the unit tests answer from {@code FakeGraphQlClient}, which encodes our
- * model of the API rather than the API. That is how four separate breakages stayed green in CI for
- * days. {@code OperationsSchemaTest} now validates every constant here against {@code
- * mootmaker-api}'s schema, and the fake validates each query it is sent, so an operation added
- * inline somewhere else is caught too.
+ * <p>The unit tests answer from {@code FakeGraphQlClient}, which encodes our model of the API
+ * rather than the API, so on its own it would pass an operation the real API refuses. {@code
+ * OperationsSchemaTest} validates every constant here against {@code mootmaker-api}'s schema, and
+ * the fake validates each query it is sent, so an operation added inline somewhere else is caught
+ * too.
  */
 final class Operations {
 

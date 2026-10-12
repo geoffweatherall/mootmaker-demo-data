@@ -1,14 +1,11 @@
 #!/usr/bin/env bash
-# Imports this environment's ALREADY-EXISTING log group into Terraform state, so the first apply
-# that introduces deploy/terraform/logs.tf does not fail.
+# Imports this environment's log group into Terraform state if it exists but is not there, so an
+# apply does not fail with ResourceAlreadyExistsException.
 #
-# Why (design Rollout step 12): Lambda auto-creates its log group on first invocation, unmanaged
-# and with never-expire retention. CloudWatch rejects creating a group whose name is taken, so on
-# any environment that has ever run - test and production - a plain apply fails. Importing first
-# hands Terraform the existing group instead.
-#
-# A FRESH ephemeral environment needs none of this; the script skips anything absent, so running
-# it there is harmless. Idempotent: a group already in state is skipped.
+# Lambda auto-creates its log group on first invocation if none exists, with never-expire
+# retention. Terraform normally creates it first (see deploy/terraform/logs.tf), so this is needed
+# only if the group was ever created outside Terraform. It skips a group that does not exist, so it
+# is safe to run on any environment. Idempotent: a group already in state is skipped.
 #
 # Usage: ./deploy/import-log-groups.sh <environment>
 set -euo pipefail
