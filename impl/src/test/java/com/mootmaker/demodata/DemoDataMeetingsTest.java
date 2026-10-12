@@ -65,9 +65,7 @@ class DemoDataMeetingsTest {
   @Test
   void skipsDaysThatAlreadyHaveMeetings() {
     // The top-up is meant to be safe to repeat: a day that already has meetings is left alone.
-    // This is also the read path that used to ask the deleted Query.meetings for a time range
-    // and derive dates from start times; it now asks for the days by date and reads back which
-    // came home non-empty.
+    // It asks for the days by date and reads back which came home non-empty.
     final FakeGraphQlClient client = environmentWithCapacity();
     final List<String> weekdays =
         DemoData.weekdaysBetween(LocalDate.now(), LocalDate.now().plusDays(7)).stream()

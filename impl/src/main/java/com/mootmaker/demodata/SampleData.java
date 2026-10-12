@@ -134,8 +134,7 @@ final class SampleData {
 
   /**
    * {@code count} distinct full names, drawn in a random order. Every first/last combination is a
-   * candidate, so names are unique by construction rather than by retrying on collision - the bug
-   * that made sample-data-generator index its people by position instead of by name.
+   * candidate, so names are unique by construction rather than by retrying on collision.
    */
   static List<String> personNames(final int count, final Random random) {
     if (count > FIRST_NAMES.size() * LAST_NAMES.size()) {
