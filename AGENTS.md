@@ -1,85 +1,65 @@
 # mootmaker-demo-data
 
-One Lambda, deployed per environment, that keeps an environment populated with demo people, rooms
-and meetings. One of the project's three deployable components, alongside `mootmaker-api` and
-`mootmaker-webapp`.
+One Java Lambda per environment that keeps the environment populated with demo people, rooms and
+meetings, through the API. One of the three deployable components, with mootmaker-api and mootmaker-webapp.
 
-**Start by reading [README.md](README.md).** Keep it up to date when behaviour changes.
+**Read [README.md](README.md) first**, and [testing-strategy.md](testing-strategy.md) before changing tests.
+Keep both true in the same pull request as any change that affects them.
 
 ## Working here
 
-- **This is part of the product, not test-only tooling.** It fills the public demo at
-  www.mootmaker.com, and runs there daily on an EventBridge schedule. Always deployed to
-  `production`; opt-in (`--with-demo-data`) for ephemeral environments.
-- **This component never deletes anything, and must not learn how.** There is no reset path and no
-  way to reach one. Its predecessor `sample-data-generator` reset the database as the first step of
-  every run, behind a script called `run.sh`; removing that is the single most important property of
-  the current design. A request to "just add a reset flag" should be read against
-  [`mootmaker/designs/demo-data-component.md`](https://github.com/geoffweatherall/mootmaker/blob/main/designs/archive/demo-data-component.md)
-  before it is acted on. Clearing an environment is a separate, deliberate invocation of
-  `mootmaker-api`'s `database-reset`.
-- **Formatting is google-java-format, Google style — run `mvn -f impl/pom.xml spotless:apply`.** The
-  `code-style` PR check fails on unformatted code, on Checkstyle violations, and on unused imports
-  and deprecated calls that `javac` does not warn about. To set an editor up, run
-  `../mootmaker/tools/install-workspace-config.sh --force` — it links the versioned VS Code settings
-  and installs the extensions, with no manual steps. Two of those settings fail *silently* when
-  wrong, so if Java formatting seems not to work, read
-  [`../mootmaker/docs/process/java-code-style.md`](https://github.com/geoffweatherall/mootmaker/blob/main/docs/process/java-code-style.md)
-  before changing anything. Deviations from Google's ruleset are in
-  `config/checkstyle-suppressions.xml`, each with its reason.
-- **Every write goes through the GraphQL API**, never DynamoDB directly. That is what makes
-  generated data proof the API's own validation accepts it, and it is why there is no shared storage
-  model between this repo and `mootmaker-api`.
-- **All three concerns must stay idempotent.** People and rooms create `max(0, target - current)`;
-  meetings skip any day that already has one. The acceptance suite's "a second run changes nothing"
-  test is what guards this.
-- **Releases go through `release.yml`, not `deploy.sh`.** A release in
-  [mootmaker-release](https://github.com/geoffweatherall/mootmaker-release) builds this component
-  once, tags it, and promotes that one build through `test` and then `production`, with smoke tests
-  either side and an automatic rollback if `production`'s fails. `./deploy.sh <name>` is still the
-  right tool for an ephemeral environment; it is no longer how `test` or `production` get updated.
-  This repo's `release-build.yml` is a reusable workflow called by that pipeline — it is not
-  something to dispatch directly except when proving the pipeline itself.
-- **`deploy.sh` reads nothing from `mootmaker-api`'s Terraform state** - only the environment name.
-  Credentials and endpoints come from SSM Parameter Store at runtime. Keep it that way; the
-  deploy-time state hand-off it replaced is what coupled the two repos' releases.
-- **`mootmaker-api` must be deployed to an environment first**, since its Terraform creates the SSM
-  parameters this component reads.
-- **The Lambda's timeout is the AWS maximum (900s) deliberately.** Any caller needs a matching
-  client-side timeout - `--cli-read-timeout 900` for the AWS CLI - or a long run is reported as a
-  failure while the Lambda completes regardless.
+- **It is part of the product.** It fills the public demo at www.mootmaker.com and runs there daily.
+- **It never deletes anything, and must not learn how.** A request to "just add a reset flag" should be
+  read against the
+  [demo-data-component design](https://github.com/geoffweatherall/mootmaker/blob/main/designs/archive/demo-data-component.md)
+  first. Clearing an environment is mootmaker-api's `database-reset`, run deliberately.
+- **Every write goes through the GraphQL API**, never DynamoDB or S3. That is what proves generated data
+  passes the API's validation, and why no storage model is shared with mootmaker-api.
+- **Every concern must stay idempotent**: people and rooms create only the shortfall, meetings skip any day
+  that has one, guaranteed meetings skip any day the person already has one. The acceptance test "a
+  second run changes nothing" guards this.
+- **Every operation is checked against mootmaker-api's schema** in the unit tests, which read the sibling
+  `../mootmaker-api` checkout and fail if it is missing.
+- **Formatting is google-java-format; run `mvn -f impl/pom.xml spotless:apply`.** The `code-style` check
+  also runs Checkstyle and fails on unused imports and deprecated calls. Editor setup, and what to check
+  when formatting silently does nothing:
+  [java-code-style.md](https://github.com/geoffweatherall/mootmaker/blob/main/docs/process/java-code-style.md).
+  Deviations from Google's rules are in `config/checkstyle-suppressions.xml`, each with its reason.
+- **`deploy.sh` needs only the environment name**; endpoints and credentials come from SSM at run time.
+  Keep it that way, so this repository never depends on mootmaker-api's Terraform state. Deploy
+  mootmaker-api to an environment first.
+- **Any caller needs a 900-second client timeout** (`--cli-read-timeout 900`), matching the Lambda's.
+- **`release-build.yml` is called by mootmaker-release's `release.yml`.** Dispatch it directly only to
+  prove the pipeline itself.
 
 ---
 
 ## Project-wide rules
 
-This repository is part of the **mootmaker** project. The workflow rules that apply everywhere live
-in the hub repository, which you should find checked out as a sibling directory:
+This repository is part of **Mootmaker**. The hub repository, checked out as a sibling at
+`../mootmaker`, holds what applies everywhere:
 
-    ../mootmaker/docs/process/README.md
+- How work is done: [`../mootmaker/docs/process/README.md`](https://github.com/geoffweatherall/mootmaker/blob/main/docs/process/README.md).
+  Read it before any non-trivial work.
+- How the system fits together: [`../mootmaker/docs/overview/`](https://github.com/geoffweatherall/mootmaker/tree/main/docs/overview).
+- What to do when something is wrong: [`../mootmaker/docs/runbooks/`](https://github.com/geoffweatherall/mootmaker/blob/main/docs/runbooks/README.md).
 
-On GitHub: <https://github.com/geoffweatherall/mootmaker/blob/main/docs/process/README.md>
+The short version:
 
-**Read it before doing any non-trivial work here.** The short version:
+- Work of any real size starts with a **design** (`../mootmaker/designs/`); a bug or small change starts
+  with a **GitHub issue in this repository**, so `Closes #N` works.
+- Everything lands on a **branch** through a **pull request**. Reading the diff is the review; merging is
+  the approval.
+- **A green acceptance run against a real deployed environment** is the definition of working.
+- **`test` and `production` change only through a release** (`release.yml` in mootmaker-release). Use an
+  ephemeral environment for your own work, and tear it down when you finish.
+- **Say what something costs in AWS before creating it.** Under NZ$1 one-off, go ahead and state it;
+  more, or anything recurring, ask first.
+- **Keep documentation and comments true and current.** If a change makes a document wrong, fixing it is
+  part of the change. Describe what is, not how it got here; a comment says what and why.
+- **Verify against reality, not your own output**, and **say what actually happened**, including
+  failures and skipped steps.
 
-- Work of any real size starts with a **design document** (`../mootmaker/designs/`), not with code.
-- Bugs and small changes start with a **GitHub issue in this repository**, so `Closes #N` works.
-- All work happens on a **branch** and lands via a **pull request**. There is no approval step —
-  reading the diff is the review, merging is the approval.
-- **A green acceptance run against a real deployed environment** is the definition of working — not
-  a passing unit suite, and not a successful deploy.
-- **Environments are `production`, `test`, or ephemeral.** `test` and `production` change only
-  through `release.yml` in mootmaker-release — never `./deploy.sh` by hand. Everything else is
-  ephemeral: tear down any you create, as part of finishing rather than as a tidy-up afterwards.
-- **If your change makes a document wrong, fixing it is part of the change.**
-- **Verify against reality, not your own output.** A script exiting zero is not evidence that the
-  thing it was meant to do happened.
-- **Say what actually happened.** Failing tests get reported with their output; skipped steps get
-  named.
-
-Also useful: [`../mootmaker/docs/roles/`](https://github.com/geoffweatherall/mootmaker/blob/main/docs/roles/)
-for which kind of work you are doing, and
-[`../mootmaker/tools/workstation/check.sh`](https://github.com/geoffweatherall/mootmaker/blob/main/tools/workstation/check.sh)
-if something is not installed.
+Something not installed? [`../mootmaker/tools/workstation/check.sh`](https://github.com/geoffweatherall/mootmaker/blob/main/tools/workstation/check.sh).
 
 `CLAUDE.md` in this repository is a symlink to this file.

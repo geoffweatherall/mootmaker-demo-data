@@ -1,186 +1,135 @@
 # mootmaker-demo-data
 
-Demo data for the [mootmaker](https://github.com/geoffweatherall/mootmaker) project: one Lambda
-that keeps an environment populated with realistic people, rooms and meetings.
+One Lambda per environment that keeps the environment populated with realistic people, rooms and
+meetings. It is part of the product, not a test aid: it fills the public demo at www.mootmaker.com. What
+a visitor sees, and why the data is shaped that way, is in the hub's
+[demo data overview](https://github.com/geoffweatherall/mootmaker/blob/main/docs/overview/demo-data.md).
+This page is the operating detail.
 
-This is one of the project's **three deployable components**, alongside
-[mootmaker-api](https://github.com/geoffweatherall/mootmaker-api) and
-[mootmaker-webapp](https://github.com/geoffweatherall/mootmaker-webapp). Demo is a core part of
-MootMaker rather than test scaffolding — the public demo at www.mootmaker.com is what this fills —
-so it is always deployed to `production`, and optional for ephemeral environments.
+It is one of the three deployable components, with mootmaker-api and mootmaker-webapp.
 
-## This tool never deletes anything
+```mermaid
+flowchart LR
+  eb["EventBridge rule<br/>daily 06:00 UTC, production only"]
+  you["A release, or a person<br/>aws lambda invoke"]
+  lambda["&lt;env&gt;-mootmaker-demo-data<br/>Java 25, reserved concurrency 1"]
+  ssm[("SSM Parameter Store<br/>/mootmaker/&lt;env&gt;/...")]
+  cognito["Cognito<br/>client_credentials"]
+  api["The environment's AppSync API"]
+  eb --> lambda
+  you --> lambda
+  lambda -- "endpoint, client id and secret,<br/>guaranteed person ids" --> ssm
+  lambda -- "one token per run" --> cognito
+  lambda -- "createPerson, createRoom, createMeetings,<br/>avatar upload" --> api
+```
 
-There is no reset path here, and no way to reach one. A run only ever *adds*: it creates the
-people, rooms and meetings that are missing, and leaves everything that already exists alone.
+## It never deletes anything
 
-That is a deliberate change. Its predecessor, `sample-data-generator`, reset the database as the
-first step of every run — behind a script called `run.sh`. Clearing an environment is now a
-separate, deliberate step: invoke `mootmaker-api`'s `database-reset` yourself first, then invoke
-this. Two commands, and neither is a surprise.
+A run only adds. It creates the people, rooms and meetings that are missing and leaves everything else
+alone, and there is no option that does otherwise. To start an environment from scratch, run
+mootmaker-api's `database-reset` first and then this, as two deliberate commands.
 
 ## What a run does
 
-Four independent concerns, each of which does nothing once its target is already met:
+Four concerns, each of which does nothing once its target is met:
 
-| Concern | Target | What makes it repeatable |
+| Concern | Target | Repeatable because |
 |---|---|---|
-| People | `TARGET_PEOPLE` (default 100) | Creates the shortfall only. Nine in ten get an avatar - see [Avatars](#avatars) |
-| Rooms | `TARGET_ROOMS` (default 10) | Creates the shortfall only, never reusing an existing room's name |
-| Meetings | every weekday from `DAYS_IN_PAST` (default 7) behind today to `WEEKS_AHEAD` (default 6) ahead | Skips any day that already has a meeting |
-| Guaranteed meetings | every weekday in the same window, for each person in `/mootmaker/<env>/demo-data/guaranteed-person-ids` | Skips any day the person already organises or attends |
+| People | `TARGET_PEOPLE` (100) | It creates only the shortfall. Nine in ten get an avatar |
+| Rooms | `TARGET_ROOMS` (10) | It creates only the shortfall, never reusing an existing room's name |
+| Meetings | Every weekday from `DAYS_IN_PAST` (7) days back to `WEEKS_AHEAD` (6) weeks ahead | It skips any day that already has a meeting |
+| Guaranteed meetings | The same weekdays, for each Person id in `/mootmaker/<env>/demo-data/guaranteed-person-ids` | It skips any day the person already organises or attends |
 
-**Guaranteed meetings exist because the Meetings concern asks the wrong question for a personal
-calendar.** It asks whether a day has *any* meeting; the webapp's calendar is filtered to one
-person. Organisers and attendees are picked at random from every Person, so the published demo
-account — whose credentials the signed-out home page shows every visitor — gets meetings only by
-luck, at roughly 1-in-`TARGET_PEOPLE` odds per slot. A visitor clicking **Calendar** could see
-nothing.
-
-The list is written by `mootmaker-api`'s Terraform (`demo-data-credentials.tf`) and holds the demo
-user's Person id. It is **optional**: an environment whose `mootmaker-api` predates the parameter
-reads an empty list and behaves exactly as before. Each guaranteed meeting is placed in the first
-free room-and-hour slot it finds — not a wholly free room, which real days routinely don't have —
-searching every room across a handful of candidate hours; if none of those combinations is free, the
-day is skipped with a message rather than risking `TimeRangeUnavailable`.
-
-Seeding a fresh environment and topping up `production` are therefore the **same operation** — on a
-new environment every day in the window is empty, so the run fills all of them; on a populated one
-it fills whichever single day has just entered the window. There is no mode to choose and none to
-get wrong.
-
-The people target counts **all** people, not just generated ones: `Person` exposes no Cognito
-linkage through the GraphQL API, so this tool genuinely cannot tell a demo person from a real
-signed-up one. In an environment where real sign-ups have passed the target, no demo people are
-created — there are already enough people to book meetings with.
+- **Guaranteed meetings** exist for the published demo account. Organisers and attendees are picked at
+  random from about a hundred people, so without them the demo account's Calendar could be empty.
+  mootmaker-api's Terraform writes the list. Each meeting goes in the first free room-and-hour slot
+  among a few candidate hours, and a day with no free slot is skipped with a message. This concern runs
+  after the meeting top-up, so a day the top-up has already covered for the person is left alone.
+- **Seeding and topping up are the same operation.** In a new environment every day in the window is
+  empty, so a run fills them all; in a running one it fills only the day that has just entered the
+  window.
+- **The people target counts everyone**, including real sign-ups: the API does not say which people
+  have accounts. Where real sign-ups pass the target, no demo people are created.
+- **Magnitudes are Terraform variables** (`deploy/terraform/variables.tf`), not payload fields. A
+  mistyped invocation can switch a concern off but can never ask for 4,000 people.
+- **The payload only toggles concerns**: `{"people": false}`, `{"rooms": false}`, `{"meetings": false}`.
+  Each defaults to on; `meetings` covers guaranteed meetings too. The schedule sends `{}`.
 
 ## Avatars
 
-Nine in ten generated people get an avatar; the rest are left without, so an environment shows the
-initials fallback too. Each avatar is **a photograph whose apparent sex matches the person's first
-name**, and **nobody in an environment ever gets one somebody else already has** - a run that would
-need more photographs of either sex than remain unused fails before creating anyone, rather than
-repeating one or borrowing from the other half.
+- **Each generated person gets a photograph whose apparent sex matches their first name**
+  (`SampleData.FEMALE_FIRST_NAMES`; every other name is treated as male). The pool is 100 men and
+  100 women, 512×512 JPEGs in `impl/src/main/resources/avatars-photo/`. **None is a real person:** they
+  were generated with Stable Diffusion 1.5 by
+  [`photorealistic-avatar-generator/`](photorealistic-avatar-generator/), an authoring tool that needs a
+  GPU and is not part of the build.
+- **No two people in an environment share a photograph.** A run that would need more photographs of
+  one sex than remain unused fails before creating anyone. Each half must therefore stay comfortably
+  above half of `TARGET_PEOPLE`.
+- **Which photographs are taken is read from the API, not remembered.** The API names each avatar by the
+  SHA-256 of the uploaded bytes, and that hash is the last segment of `Person.avatarUrl`. `AvatarPool`
+  hashes its own files, so a photograph is in use exactly when its hash appears in someone's URL.
+- **Avatars are set exactly as the apps set them**: `requestAvatarUpload`, an HTTP `PUT` to the presigned
+  URL, then `confirmAvatarUpload`. Every seeding run therefore exercises the upload path.
 
-The photographs are 100 men and 100 women, 512x512 JPEGs bundled in
-[`impl/src/main/resources/avatars-photo/`](impl/src/main/resources/avatars-photo/), about 10 MB.
-**None of them is a real person**: they were generated with Stable Diffusion 1.5, and
-[`photorealistic-avatar-generator/`](photorealistic-avatar-generator/) is the tool that made them,
-with each image's prompt and seed in its `manifest.json`. It is authoring-time tooling needing a
-GPU; nothing in the build, the jar or the Lambda runs it. See
-[photorealistic-demo-avatars.md](https://github.com/geoffweatherall/mootmaker/blob/main/designs/archive/photorealistic-demo-avatars.md).
+## Writes go through the API
 
-Sex comes from `SampleData.FEMALE_FIRST_NAMES`, a direct tag on 20 of the 40 curated first names;
-every other name is treated as male. It is a guess about a fictional person, made only so a demo
-does not look obviously wrong, and nothing but avatar choice reads it. The two halves are used up
-independently, so each must stay comfortably above half of `TARGET_PEOPLE`.
+There is no DynamoDB or S3 code here. Everything is created with the same mutations the apps use, so
+generated data has passed the API's own validation and cannot be in a state the API would refuse.
 
-**An avatar is set exactly the way the webapp would set one**: `createPerson`, then
-`requestAvatarUpload`, an HTTP `PUT` of the image to the presigned URL that returns, then
-`confirmAvatarUpload`. `createPerson` takes no avatar, so there is no other way. That makes every
-seeding run a test of the upload path, against images the API really does decode and re-encode.
-
-**Which images are taken is read back from the API, never remembered.** mootmaker-api keys each
-avatar by the SHA-256 of the bytes that were uploaded, and that hash is the last path segment of
-`Person.avatarUrl`. [`AvatarPool`](impl/src/main/java/com/mootmaker/demodata/AvatarPool.java) hashes
-its own files, and an image is in use exactly when its hash appears in some person's URL. Only that
-segment is compared - the rest of the URL differs per environment and per person. So the rule holds
-across runs and redeploys, with nothing stored here.
+The Lambda signs in as **its own Cognito machine client** (`<env>-mootmaker-demo-data`, defined in
+mootmaker-api's `cognito.tf`) with the OAuth2 `client_credentials` flow. It reads the client id and
+secret from SSM at run time, so no credential sits in an environment variable or in this repository's
+Terraform state. It fetches **one token per run**, because Cognito charges for every machine-to-machine
+token request.
 
 ## Running it
 
 ```bash
 # Everything (what the schedule does)
-aws lambda invoke --function-name <environment>-mootmaker-demo-data \
+aws lambda invoke --function-name <env>-mootmaker-demo-data \
   --cli-read-timeout 900 --payload '{}' /dev/stdout
 
-# Just the meetings, leaving people and rooms alone
-aws lambda invoke --function-name <environment>-mootmaker-demo-data \
+# Only the meetings
+aws lambda invoke --function-name <env>-mootmaker-demo-data \
   --cli-read-timeout 900 --payload '{"people": false, "rooms": false}' /dev/stdout
-```
 
-**`--cli-read-timeout 900` is not optional.** The function's own timeout is the AWS maximum of 900
-seconds, and the AWS CLI defaults to a 60-second read timeout — without this, a legitimately long
-run (a full seed of a fresh environment) is reported to you as a failure while the Lambda carries
-on and completes regardless.
-
-Every concern defaults to enabled, so the scheduled invocation's empty payload runs all three.
-Magnitudes — how many people and rooms, how wide the window — are Terraform variables rather than
-payload fields, so a mistyped invocation can switch a concern off but can never ask for 4,000
-people.
-
-Runs are serialised: the function reserves a concurrency of 1 (`reserved_concurrency` in
-`deploy/terraform/variables.tf`), so a second invocation overlapping the first is throttled outright
-by Lambda rather than racing it. That reservation was not available until 2026-09-07: this account's
-total Lambda concurrency quota was 10, and AWS refuses any reservation leaving fewer than 10
-unreserved, so no value was settable. **The quota is now 1,000** (mootmaker#72), which is what made
-the reservation possible (#27). It throttles only overlapping invocations of *this* Lambda — it has
-no effect on `MAX_CONCURRENT_REQUESTS` in `DemoData.java`, which bounds the parallel GraphQL calls a
-single invocation makes outward, not invocations of this Lambda itself.
-
-Before this was set, overlap was an accepted risk: it needed a manual invoke to land inside the few
-seconds the daily scheduled run is active, and the worst case was a few extra rooms or people in a
-demo environment, after which the next run was a no-op again because every concern is defined by its
-target rather than by what it last did.
-
-### To clear and repopulate
-
-```bash
-aws lambda invoke --function-name <environment>-mootmaker-database-reset \
-  --cli-read-timeout 900 --payload '{}' /dev/stdout    # mootmaker-api's tool, not this one
-aws lambda invoke --function-name <environment>-mootmaker-demo-data \
+# Clear and repopulate: mootmaker-api's reset, then this
+aws lambda invoke --function-name <env>-mootmaker-database-reset \
+  --cli-read-timeout 900 --payload '{}' /dev/stdout
+aws lambda invoke --function-name <env>-mootmaker-demo-data \
   --cli-read-timeout 900 --payload '{}' /dev/stdout
 ```
+
+- **`--cli-read-timeout 900` is required.** The Lambda's timeout is the AWS maximum of 900 seconds, and
+  the CLI gives up after 60 by default. A full seed then looks like a failure while the Lambda carries
+  on and completes.
+- **One run at a time.** The function reserves a concurrency of 1, so Lambda throttles an invocation
+  that overlaps a running one. This is separate from `MAX_CONCURRENT_REQUESTS` in `DemoData.java`,
+  which limits the parallel GraphQL calls one run makes.
+- **The schedule** is an EventBridge rule at 06:00 UTC, enabled only in `production` unless
+  `schedule_enabled` is set. A release also seeds `test` and `production` straight after deploying each,
+  so a rebuilt environment never waits for the schedule.
 
 ## Build, test, deploy
 
 ```bash
-mvn -f impl/pom.xml clean package     # unit tests (need ../mootmaker-api for its schema)
-./deploy.sh <environment>             # build the jar, create/update the Lambda
-./deploy.sh <environment> --skip-build  # deploy the existing impl/target/demo-data.jar unchanged
-                                      # (used by the release pipeline to promote one build)
-./verify.sh <environment>             # acceptance tests (destructive - never production)
-./undeploy.sh <environment>           # remove it (prompts for confirmation)
-./undeploy.sh <environment> --yes     # no prompt, for automation; refuses production and test
+mvn -f impl/pom.xml clean package          # build and unit tests (needs ../mootmaker-api for its schema)
+mvn -f impl/pom.xml spotless:apply         # format
+./deploy.sh <env>                          # build the jar and create or update the Lambda
+./deploy.sh <env> --skip-build             # deploy impl/target/demo-data.jar as is (the release pipeline)
+./verify.sh <env>                          # acceptance tests: reset, seed, check (refuses production)
+./undeploy.sh <env>                        # remove it, after a prompt
+./undeploy.sh <env> --yes                  # no prompt; refuses production and test
 ```
 
-`deploy.sh` needs **nothing** from `mootmaker-api`'s Terraform state — only the environment name.
-Everything else (GraphQL URL, Cognito token endpoint, client id/secret, scopes) is read at runtime
-from SSM Parameter Store, at paths derived from the environment name.
+- **Deploy mootmaker-api to the environment first.** Its Terraform creates the SSM parameters this
+  reads. Deployed without them, the Lambda comes up and then fails on its first invocation.
+- **`deploy.sh` needs only the environment name.** It reads nothing from mootmaker-api's Terraform state.
+- **`test` and `production` change only through a release** (`release.yml` in mootmaker-release), which
+  calls this repository's `release-build.yml` to build the jar once and prove it in an ephemeral
+  environment.
 
-**`mootmaker-api` must be deployed to an environment before this is**, since its Terraform is what
-creates those parameters. Deploy this first and the Lambda comes up fine, then fails on its first
-invocation with a missing-parameter error.
-
-## Authentication
-
-Machine-to-machine, via the OAuth2 `client_credentials` flow: this component has **its own** Cognito
-app client (`<environment>-mootmaker-demo-data`), defined in `mootmaker-api`'s `cognito.tf`, whose
-id and secret it reads from SSM at runtime. It never acts as a user — it cannot, since the webapp's
-Cognito client permits only SRP auth — and it holds no credential in an environment variable or in
-this project's Terraform state.
-
-It used to borrow the *acceptance tests'* client, with the secret passed in as a plaintext Lambda
-environment variable. That shared one credential between two unrelated consumers and put it
-somewhere any holder of `lambda:GetFunctionConfiguration` could read.
-
-The token is fetched **once per run**, never per request: Cognito bills M2M token requests with no
-free tier at all, so a token per GraphQL call would cost hundreds of times more on a full seed.
-
-## Scheduling
-
-An EventBridge rule invokes the Lambda daily at 06:00 UTC. It is **enabled only in `production`** by
-default — an ephemeral environment that outlives its work should not also sit there invoking a
-Lambda every day against an API that may be half-torn-down. Set `schedule_enabled` explicitly to
-exercise it elsewhere.
-
-## Everything it writes goes through the API
-
-This component holds no DynamoDB or S3 code at all. It creates data by calling `createPerson`,
-`createRoom`, `createMeeting` and the avatar upload mutations exactly as the webapp would, which makes generated demo data proof
-that the API's own validation accepts it. Writing directly to DynamoDB would be faster and would let
-it construct states the API rejects — which is exactly why it doesn't.
-
-## Testing
-
-See [testing-strategy.md](testing-strategy.md).
+How it is tested: [testing-strategy.md](testing-strategy.md). If demo data is missing from an
+environment, see the hub's
+[demo data runbook](https://github.com/geoffweatherall/mootmaker/blob/main/docs/runbooks/demo-data-missing.md).
